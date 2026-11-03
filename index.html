@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#C2185B">
+<title>Muestras multiresiduo · Frutea</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<style>
+:root{
+  --brand:#C2185B; --brand-ink:#fff; --wine:#6D0F35;
+  --bg:#F4F3F6; --surface:#FFFFFF; --ink:#1E1B1D; --muted:#6B6268; --line:#E2DCE0;
+  --late:#B3261E; --urgent:#D9480F; --week:#B7791F; --future:#8A8287;
+  --sent:#3559A8; --ok:#2E7D4F; --bad:#B3261E;
+  --step-off:#E6E1E4;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --brand:#E0527F; --wine:#F2A7C0;
+    --bg:#16121A; --surface:#211B24; --ink:#F1ECEF; --muted:#A99FA6; --line:#3A3139;
+    --late:#F2726A; --urgent:#F59A5B; --week:#E3B04B; --future:#8F858C;
+    --sent:#86A6F0; --ok:#6FCB94; --bad:#F2726A; --step-off:#3A3139;
+    color-scheme:dark;
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+/* Encabezado */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--brand);color:var(--brand-ink);padding:10px 14px 0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--brand);z-index:21}
+.brandrow{display:flex;align-items:center;gap:10px}
+.brandrow svg{flex:none}
+.brandrow h1{font-family:var(--f-cond);font-weight:700;font-size:1.45rem;line-height:1.05;margin:0;letter-spacing:.2px}
+.brandrow small{display:block;font-family:var(--f-body);font-weight:500;font-size:.8rem;opacity:.85}
+.brandrow .sp{flex:1}
+.iconbtn{background:rgba(255,255,255,.16);border:0;border-radius:10px;color:#fff;width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
+.iconbtn:active{background:rgba(255,255,255,.3)}
+.netrow{display:flex;align-items:center;gap:7px;margin-top:8px;background:rgba(0,0,0,.16);border:0;border-radius:999px;padding:4px 11px 4px 9px;color:#fff;font-size:.8rem;font-weight:500;cursor:pointer;max-width:100%}
+.netrow span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:9px;height:9px;border-radius:50%;background:#ccc;flex:none}
+.dot.ok{background:#7CF0A9}.dot.pend{background:#FFD166}.dot.off{background:#FFB38A}.dot.err{background:#FF6B6B}
+.tabs{display:flex;gap:4px;margin-top:6px}
+.tabs button{flex:1;background:transparent;border:0;color:#fff;opacity:.75;padding:10px 0 12px;font-family:var(--f-cond);font-weight:600;font-size:1.05rem;border-bottom:3px solid transparent;cursor:pointer}
+.tabs button[aria-selected="true"]{opacity:1;border-bottom-color:#fff}
+
+main{max-width:980px;margin:0 auto;padding:12px 12px 90px}
+
+/* Contadores de estado = filtros */
+.counts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.count{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:8px 6px;text-align:left;cursor:pointer}
+.count b{display:block;font-family:var(--f-cond);font-size:1.7rem;line-height:1;font-weight:700}
+.count span{font-size:.78rem;color:var(--muted);font-weight:500}
+.count[aria-pressed="true"]{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.count.c-pend b{color:var(--urgent)} .count.c-tom b{color:var(--week)} .count.c-env b{color:var(--sent)} .count.c-res b{color:var(--ok)}
+
+.tools{display:flex;gap:8px;margin-bottom:10px}
+.tools input{flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px}
+.tools button{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:0 12px;font-weight:600;cursor:pointer;white-space:nowrap}
+
+/* Franja de semanas: se desliza con el dedo */
+.weeks{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;padding:2px 2px 10px;margin:0 -12px 4px;padding-left:12px;padding-right:12px;scrollbar-width:none}
+.weeks::-webkit-scrollbar{display:none}
+.wk{flex:none;scroll-snap-align:start;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-size:.85rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.wk em{font-style:normal;color:var(--muted);font-weight:500;margin-left:4px}
+.wk[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.wk[aria-pressed="true"] em{color:inherit;opacity:.7}
+
+/* Tarjetas */
+.group-h{font-family:var(--f-cond);font-weight:600;font-size:1.05rem;color:var(--muted);margin:18px 2px 8px}
+.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 12px 12px 18px;margin-bottom:8px;cursor:pointer;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--u,var(--future))}
+.card .row1{display:flex;align-items:baseline;gap:8px}
+.card .predio{font-family:var(--f-cond);font-weight:700;font-size:1.25rem;line-height:1.1}
+.card .var{margin-left:auto;font-weight:700;color:var(--brand);white-space:nowrap}
+.card .prod{font-size:.85rem;color:var(--muted);margin-top:1px}
+.card .dates{display:flex;gap:14px;margin-top:8px;font-size:.9rem;flex-wrap:wrap}
+.card .dates div span{display:block;font-size:.74rem;color:var(--muted)}
+.card .dates b{font-weight:600}
+.card .lim b{color:var(--u)}
+.card .covers{font-size:.82rem;color:var(--muted);margin-top:6px}
+.card .warn{font-size:.82rem;color:var(--late);margin-top:4px;font-weight:600}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px}
+.steps i{height:6px;border-radius:3px;background:var(--step-off)}
+.steps i.on{background:var(--st)}
+.stlabel{font-size:.78rem;font-weight:600;margin-top:5px;color:var(--st)}
+.card .dates .badge-u{display:inline;font-size:.74rem;font-weight:700;color:var(--u);margin-left:6px}
+
+/* Tabla con desplazamiento lateral */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x pan-y;background:var(--surface);border:1px solid var(--line);border-radius:12px;max-height:calc(100vh - 260px)}
+table{border-collapse:separate;border-spacing:0;min-width:1180px;width:100%;font-size:.88rem}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
+thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-family:var(--f-cond);font-weight:600;font-size:.95rem;color:var(--muted)}
+td.stick,th.stick{position:sticky;left:0;background:var(--surface);z-index:1;border-right:1px solid var(--line);min-width:112px;max-width:128px;white-space:normal}
+@media (min-width:720px){td.stick,th.stick{max-width:200px}}
+thead th.stick{z-index:3}
+tbody tr{cursor:pointer}
+tbody tr:active td{background:var(--bg)}
+.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:.78rem;font-weight:700;color:#fff;background:var(--st)}
+td .sub{display:block;color:var(--muted);font-size:.78rem}
+.swipehint{font-size:.8rem;color:var(--muted);margin:0 2px 6px}
+
+/* Flujo */
+.flow th,.flow td{padding:6px 8px}
+.flow td.stick{font-size:.82rem}
+.flow td.k{text-align:right;font-variant-numeric:tabular-nums}
+.flow td.hit{background:color-mix(in srgb,var(--brand) 16%,transparent);font-weight:600}
+.flow td.first{background:var(--brand);color:#fff;font-weight:700}
+
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.empty button{margin-top:10px}
+
+/* Hoja inferior de detalle */
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;width:100%;height:100%;margin:0}
+dialog::backdrop{background:rgba(20,10,16,.45)}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:var(--surface);color:var(--ink);border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));max-width:640px;margin:0 auto}
+.sheet h2{font-family:var(--f-cond);font-size:1.5rem;margin:0;line-height:1.1}
+.sheet .meta{color:var(--muted);font-size:.88rem;margin:2px 0 12px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:.9rem;background:var(--bg);border-radius:12px;padding:10px 12px;margin-bottom:14px}
+.facts span{display:block;font-size:.74rem;color:var(--muted)}
+.check{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.check.done{border-color:var(--st)}
+.check label.q{display:flex;align-items:center;gap:10px;font-weight:600;font-size:1.02rem;cursor:pointer}
+.check input[type=checkbox]{width:24px;height:24px;accent-color:var(--brand);flex:none}
+.check .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.check .fields.hide{display:none}
+.fields label{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.fields input,.fields select,.fields textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.95rem;color:var(--ink);width:100%}
+.fields .full{grid-column:1/-1}
+.sheet .actions{display:flex;gap:8px;margin-top:12px}
+.btn{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--brand);color:#fff;flex:1}
+.btn.ghost{background:var(--bg);color:var(--ink)}
+.cfg label{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.cfg input[type=number]{width:80px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+.cfg p{font-size:.85rem;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-weight:600;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media (min-width:720px){.counts{gap:10px}.count b{font-size:2rem}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brandrow">
+    <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c4 10 10 16 22 18" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><path d="M32 6c-2 12-8 20-14 26" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><path d="M33 7c8-3 16-1 20 5-8 3-15 1-20-5z" fill="#fff" opacity=".85"/><circle cx="18" cy="42" r="13" fill="#fff"/><circle cx="44" cy="44" r="13" fill="#fff" opacity=".9"/></svg>
+    <h1>Muestras multiresiduo<small id="subtitle">Cerezas T2026-27</small></h1>
+    <span class="sp"></span>
+    <button class="iconbtn" id="btnImport" aria-label="Cargar flujo desde Excel" title="Cargar flujo desde Excel"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></button>
+    <button class="iconbtn" id="btnExport" aria-label="Exportar control a Excel" title="Exportar control a Excel"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></button>
+    <button class="iconbtn" id="btnCfg" aria-label="Configuración" title="Configuración"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls" hidden>
+  </div>
+  <button class="netrow" id="netrow" title="Cambiar nombre de usuario"><span class="dot" id="dot"></span><span id="nubeTxt">Solo en este equipo</span></button>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-view="lista" aria-selected="true">Próximas</button>
+    <button role="tab" data-view="tabla" aria-selected="false">Control</button>
+    <button role="tab" data-view="flujo" aria-selected="false">Flujo</button>
+  </nav>
+</header>
+
+<main>
+  <div class="counts" id="counts"></div>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Buscar productor, predio, variedad o CSG" autocomplete="off">
+  </div>
+  <div class="weeks" id="weeks"></div>
+  <section id="view"></section>
+</main>
+
+<dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module">
+/* =====================================================================
+   FIREBASE: pega aquí la configuración de tu proyecto (la misma del
+   Cuaderno de Dardos). Consola Firebase → Configuración del proyecto →
+   Tus apps → App web → firebaseConfig.
+   Si queda vacío, la app funciona solo en este equipo.
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+const TEMPORADA = "T2026-27";
+const COL = { flujo: "multiresiduo_flujo", muestras: "multiresiduo_muestras", config: "multiresiduo_config" };
+const FB_VER = "10.12.2";
+
+/* ===== Datos iniciales: hoja FLUJO DIARIO (Estimación Cerezas T2026-27) ===== */
+const FLUJO_INICIAL = [{"p":"Diego Antonio Pacheco Alvarez","pr":"Taitao","z":"Roma","c":"112498","pl":"Campo frut","v":"Regina","kg":75000,"d":{"2026-12-14":75000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Taitao","z":"Roma","c":"112498","pl":"Campo frut","v":"Skeena","kg":19000,"d":{"2026-12-14":19000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Taitao","z":"Roma","c":"112498","pl":"Campo frut","v":"Sweet Aryana","kg":40000,"d":{"2026-11-05":10000,"2026-11-09":15000,"2026-11-16":15000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Las Parcelas","z":"Roma","c":"150850","pl":"Campo frut","v":"Lapins","kg":40000,"d":{"2026-11-23":40000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Las Parcelas","z":"Roma","c":"150850","pl":"Campo frut","v":"Santina","kg":120000,"d":{"2026-11-09":20000,"2026-11-16":100000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Placilla","z":"Placilla","c":"87805","pl":"Huelpack","v":"Nimba","kg":37000,"d":{"2026-11-02":12000,"2026-11-07":13000,"2026-11-08":12000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Placilla","z":"Placilla","c":"87805","pl":"Huelpack","v":"Pacific Red","kg":14000,"d":{"2026-11-03":5000,"2026-11-09":5000,"2026-11-10":4000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Placilla","z":"Placilla","c":"87805","pl":"Campo frut","v":"Santina","kg":74121,"d":{"2026-10-31":26111,"2026-11-01":18010,"2026-11-05":18000,"2026-11-06":12000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Placilla","z":"Placilla","c":"87805","pl":"Campo frut","v":"Sweet Aryana","kg":170000,"d":{"2026-11-09":90000,"2026-11-16":80000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Polonia","z":"Polonia","c":"163369","pl":"Campo frut","v":"Lapins","kg":80000,"d":{"2026-11-30":80000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Taitao Lapins","z":"Roma","c":"176589","pl":"Campo frut","v":"Sweet Aryana","kg":30000,"d":{"2026-11-16":30000}},{"p":"Diego Antonio Pacheco Alvarez","pr":"Taitao Lapins","z":"Roma","c":"176589","pl":"Campo frut","v":"Lapins","kg":45000,"d":{"2026-11-23":45000}},{"p":"Agricola Las Palmeras Spa","pr":"Las Palmeras","z":"Nancagua","c":"161160","pl":"Huelpack","v":"Sweet Aryana","kg":30000,"d":{"2026-11-04":5000,"2026-11-05":5000,"2026-11-09":20000}},{"p":"Agricola Olpa Spa","pr":"Rosario Rio","z":"Peumo","c":"97094","pl":"Huelpack","v":"Nimba","kg":12000,"d":{"2026-11-02":3000,"2026-11-09":9000}},{"p":"Agricola Olpa Spa","pr":"Rosario Rio","z":"Peumo","c":"97094","pl":"Huelpack","v":"Pacific Red","kg":6000,"d":{"2026-11-07":2000,"2026-11-09":4000}},{"p":"Agricola Olpa Spa","pr":"Rosario Rio","z":"Peumo","c":"97094","pl":"Huelpack","v":"Sweet Aryana","kg":42000,"d":{"2026-11-03":5000,"2026-11-04":5000,"2026-11-05":5000,"2026-11-09":15000,"2026-11-16":12000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"107356","pl":"Huelpack","v":"Santina","kg":25000,"d":{"2026-11-16":25000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"3103656","pl":"Huelpack","v":"Lapins","kg":70000,"d":{"2026-11-30":35000,"2026-12-07":35000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"107356","pl":"Huelpack","v":"Pacific Red","kg":38000,"d":{"2026-11-09":38000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"107356","pl":"Huelpack","v":"Lapins","kg":30000,"d":{"2026-12-14":30000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"3103656","pl":"Huelpack","v":"Regina","kg":30000,"d":{"2026-12-14":30000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"3103656","pl":"Huelpack","v":"Santina","kg":75000,"d":{"2026-11-16":40000,"2026-11-23":35000}},{"p":"Soc Agricola Manfrut Ltda","pr":"Manfrut","z":"Chimbarongo","c":"3103656","pl":"Huelpack","v":"Sweet Aryana","kg":36000,"d":{"2026-11-09":16000,"2026-11-16":20000}},{"p":"Sociedad Agricola El Mimbral","pr":"Mimbral","z":"Chimbarongo","c":"3129714","pl":"Huelpack","v":"Kordia","kg":19000,"d":{"2026-12-07":19000}},{"p":"Sociedad Agricola El Mimbral","pr":"Mimbral","z":"Chimbarongo","c":"3129714","pl":"Huelpack","v":"Santina","kg":25000,"d":{"2026-11-23":25000}},{"p":"Soc Agricola Monchito Ltda","pr":"Monchito","z":"Chimbarongo","c":"3129715","pl":"Huelpack","v":"Kordia","kg":3000,"d":{"2026-12-14":3000}},{"p":"Soc Agricola Monchito Ltda","pr":"Monchito","z":"Chimbarongo","c":"3129715","pl":"Huelpack","v":"Lapins","kg":20000,"d":{"2026-12-07":20000}},{"p":"Agricola E Inversiones Valle Hermoso Spa","pr":"Valle Hermoso","z":"Paine","c":"3154168","pl":"Huelpack","v":"Lapins","kg":20000,"d":{"2026-11-30":20000}},{"p":"Agricola E Inversiones Valle Hermoso Spa","pr":"Valle Hermoso","z":"Paine","c":"3154168","pl":"Huelpack","v":"Royal Dawn","kg":25000,"d":{"2026-11-09":25000}},{"p":"Agricola E Inversiones Valle Hermoso Spa","pr":"Valle Hermoso","z":"Paine","c":"3154168","pl":"Huelpack","v":"Santina","kg":85000,"d":{"2026-11-16":45000,"2026-11-23":40000}},{"p":"Francisco Cordova Rivera","pr":"Francisco Cordova Rivera","z":"Placilla","c":"151467","pl":"Huelpack","v":"Santina","kg":20000,"d":{"2026-11-16":10000,"2026-11-23":10000}},{"p":"Francisco Cordova Rivera","pr":"Francisco Cordova Rivera","z":"Placilla","c":"151467","pl":"Huelpack","v":"Lapins","kg":20000,"d":{"2026-11-30":10000,"2026-12-07":10000}},{"p":"Luis  Alfonos Vargas Contreras","pr":"El Tubo Lote A y B","z":"Placilla","c":"3154200","pl":"Huelpack","v":"Santina","kg":3000,"d":{"2026-11-23":3000}},{"p":"Luis  Alfonos Vargas Contreras","pr":"El Tubo Lote A y B","z":"Placilla","c":"3154200","pl":"Huelpack","v":"Lapins","kg":7000,"d":{"2026-12-07":7000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"San Juan De La Sierra","z":"Chimbarongo","c":"176452","pl":"Campo frut","v":"Lapins","kg":40000,"d":{"2026-11-30":15000,"2026-12-07":15000,"2026-12-14":10000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"San Juan De La Sierra","z":"Chimbarongo","c":"176452","pl":"Campo frut","v":"Regina","kg":6000,"d":{"2026-12-21":6000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"San Juan De La Sierra","z":"Chimbarongo","c":"176452","pl":"Campo frut","v":"Sweet Heart","kg":14000,"d":{"2026-12-28":14000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"Santa Isabel","z":"Chimbarongo","c":"88813","pl":"Campo frut","v":"Bing","kg":17000,"d":{"2026-12-07":8000,"2026-12-14":9000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"Santa Isabel","z":"Chimbarongo","c":"88813","pl":"Campo frut","v":"Lapins","kg":95000,"d":{"2026-11-30":25000,"2026-12-07":40000,"2026-12-14":30000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"Santa Isabel","z":"Chimbarongo","c":"88813","pl":"Campo frut","v":"Santina","kg":6000,"d":{"2026-11-23":6000}},{"p":"Gabriela Adela Videla Valdebenito","pr":"Santa Isabel","z":"Chimbarongo","c":"88813","pl":"Campo frut","v":"Sweet Heart","kg":12000,"d":{"2026-12-21":12000}},{"p":"Luis Andrés Meza Videla","pr":"Tinguiririca","z":"Tinguiririca","c":"172125","pl":"Huelpack","v":"Lapins","kg":60000,"d":{"2026-11-30":20000,"2026-12-07":20000,"2026-12-14":20000}},{"p":"Luis Andrés Meza Videla","pr":"Tinguiririca","z":"Tinguiririca","c":"172125","pl":"Huelpack","v":"Santina","kg":0,"d":{}},{"p":"Luis Andrés Meza Videla","pr":"Tinguiririca","z":"Tinguiririca","c":"172125","pl":"Huelpack","v":"Sweet Heart","kg":30000,"d":{"2026-12-14":15000,"2026-12-21":15000}},{"p":"Agricola Antilhue Spa","pr":"Morza","z":"Teno-Morza","c":"3127503","pl":"Campo frut","v":"Kordia","kg":500,"d":{"2026-12-07":500}},{"p":"Agricola Antilhue Spa","pr":"Morza","z":"Teno-Morza","c":"3127503","pl":"Campo frut","v":"Lapins","kg":15000,"d":{"2026-12-07":15000}},{"p":"Agricola Antilhue Spa","pr":"Morza","z":"Teno-Morza","c":"3127503","pl":"Campo frut","v":"Santina","kg":10000,"d":{"2026-11-23":10000}},{"p":"Agricola San Antonio De Chimbarongo Ltda","pr":"San Antonio","z":"Chimbarongo","c":"177438","pl":"Campo frut","v":"Lapins","kg":48000,"d":{"2026-11-30":24000,"2026-12-07":24000}},{"p":"Agricola San Antonio De Chimbarongo Ltda","pr":"San Antonio","z":"Chimbarongo","c":"177438","pl":"Campo frut","v":"Santina","kg":25000,"d":{"2026-11-25":10000,"2026-11-30":15000}},{"p":"Agricola San Antonio De Chimbarongo Ltda","pr":"San Antonio","z":"Chimbarongo","c":"177438","pl":"Campo frut","v":"Sweet Heart","kg":24000,"d":{"2026-12-14":24000}},{"p":"Sociedad Agricola Y Comercial Espinoza Y Cia Ltda","pr":"Puquillay","z":"Puquillay","c":"117959","pl":"Campo frut","v":"Sweet Aryana","kg":2000,"d":{"2026-11-16":2000}},{"p":"Sociedad Agricola Y Comercial Espinoza Y Cia Ltda","pr":"Puquillay","z":"Puquillay","c":"117959","pl":"Campo frut","v":"Lapins","kg":73000,"d":{"2026-11-23":40000,"2026-11-30":33000}},{"p":"Suc Adolfo Segundo Espinoza Riveros","pr":"Puquillay","z":"Puquillay","c":"95789","pl":"Huelpack","v":"Santina","kg":10000,"d":{"2026-11-23":10000}},{"p":"Agrícola Casa Silva Ltda","pr":"Fundo el Medio","z":"San Fernando","c":"3127154","pl":"Campo frut","v":"Santina","kg":20000,"d":{"2026-11-16":5000,"2026-11-23":15000}},{"p":"Agrícola Casa Silva Ltda","pr":"Fundo el Medio","z":"San Fernando","c":"3127154","pl":"Campo frut","v":"Lapins","kg":30000,"d":{"2026-11-30":30000}},{"p":"Agrícola Casa Silva Ltda","pr":"Fundo el Medio","z":"San Fernando","c":"3127154","pl":"Campo frut","v":"Regina","kg":20000,"d":{"2026-12-07":15000,"2026-12-14":5000}},{"p":"Agrícola Tierra Buena Ltda","pr":"San Fernando","z":"San Fernando","c":"112129","pl":"Campo frut","v":"Santina","kg":35000,"d":{"2026-11-16":35000}},{"p":"Agrícola Tierra Buena Ltda","pr":"San Fernando","z":"San Fernando","c":"112129","pl":"Huelpack","v":"Lapins","kg":40000,"d":{"2026-11-30":25000,"2026-12-07":15000}},{"p":"Agrícola Tierra Buena Ltda","pr":"San Fernando","z":"San Fernando","c":"112129","pl":"Huelpack","v":"Sweet Aryana","kg":15000,"d":{"2026-11-09":15000}},{"p":"Viña Casa Vergara","pr":"Viña Casa Vergara","z":"Cauquenes","c":"164481","pl":"Campo frut","v":"Santina","kg":20000,"d":{"2026-11-16":20000}},{"p":"Guillermo Urzua","pr":"Parcela 9, La Gloria","z":"Placilla","c":"170036","pl":"Huelpack","v":"Lapins","kg":38000,"d":{"2026-11-30":20000,"2026-12-07":18000}},{"p":"Francisco Silva Carrasco","pr":"Francisco Silva Carrasco","z":"Los Lingues","c":"3103500","pl":"Huelpack","v":"Lapins","kg":15000,"d":{"2026-12-07":15000}},{"p":"Francisco Silva Carrasco","pr":"Francisco Silva Carrasco","z":"Los Lingues","c":"3103500","pl":"Huelpack","v":"Santina","kg":9000,"d":{"2026-11-23":9000}},{"p":"Miguel Alfredo Cabello Célis","pr":"Miguel Alfredo Cabello Célis","z":"Chimbarongo","c":"172564","pl":"Huelpack","v":"Lapins","kg":18000,"d":{"2026-12-07":18000}},{"p":"Mario Astaburuaga Ovalle","pr":"Mario Astaburuaga Ovalle","z":"Quinta de Tilcoco","c":"155573","pl":"Huelpack","v":"Santina","kg":30000,"d":{"2026-11-04":15000,"2026-11-05":15000}}];
+const ORIGEN_INICIAL = "Estimación_Cerezas (T2026-27), hoja FLUJO DIARIO";
+
+const LS_KEY = "frutea-multiresiduo-v1";
+const CFG_DEF = { difVariedades: 15, vigencia: 15, labSabado: false, anticipoExtra: 0 };
+
+let store = load();
+let ui = { view: "lista", filtro: "todas", semana: null, q: "" };
+let plan = [];
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+    if (s && s.flujo) { s.cfg = Object.assign({}, CFG_DEF, s.cfg||{}); s.estados = s.estados||{}; return s; }
+  }catch(e){}
+  return { flujo: FLUJO_INICIAL, origen: ORIGEN_INICIAL, cargado: null, estados: {}, cfg: Object.assign({}, CFG_DEF) };
+}
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(store)); }catch(e){ toast("No se pudo guardar en este dispositivo"); } }
+
+/* ===== Base de datos compartida (Firestore) ===== */
+const LS_USER = "frutea-multiresiduo-usuario";
+let fb = null, db = null, nubeEstado = "local";
+const usuario = () => localStorage.getItem(LS_USER) || "";
+const docId = id => id.replace(/\//g, "∕");
+const limpiarPaso = o => { const x = { ok: !!(o && o.ok) }; for (const [k,v] of Object.entries(o||{})) if (k !== "ok") x[k] = String(v ?? ""); return x; };
+const nivelE = e => (e?.resultado?.ok ? 3 : e?.enviada?.ok ? 2 : e?.tomada?.ok ? 1 : 0);
+
+function setNube(s, err){
+  nubeEstado = s;
+  const txt = { local:"Solo en este equipo: falta configurar Firebase", conectando:"Conectando con la base de datos…", ok:"En línea, compartido con el equipo",
+    pend:"Guardando cambios…", off:"Sin conexión: se sincroniza al volver la señal", err:"Error con la base de datos: revisa las reglas de Firestore" }[s];
+  const u = usuario();
+  $("#nubeTxt").textContent = txt + (u && s !== "local" ? ` · ${u}` : "");
+  $("#dot").className = "dot " + ({ ok:"ok", pend:"pend", conectando:"pend", off:"off", err:"err" }[s] || "");
+  if (err) console.error("Firestore:", err);
+}
+
+async function initNube(){
+  if (!firebaseConfig.projectId){ setNube("local"); return; }
+  setNube("conectando");
+  try{
+    const [appM, fsM] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-firestore.js`)
+    ]);
+    fb = fsM;
+    const app = appM.initializeApp(firebaseConfig);
+    try { db = fsM.initializeFirestore(app, { localCache: fsM.persistentLocalCache({ tabManager: fsM.persistentMultipleTabManager() }) }); }
+    catch(e){ db = fsM.getFirestore(app); }
+    if (!usuario()) pedirNombre();
+    escuchar();
+  }catch(e){ setNube("err", e); }
+}
+
+function escuchar(){
+  const { doc, collection, query, where, onSnapshot } = fb;
+  // Flujo de la temporada
+  onSnapshot(doc(db, COL.flujo, TEMPORADA), { includeMetadataChanges:true }, snap => {
+    if (!snap.exists()){
+      if (!snap.metadata.fromCache) subirFlujo(store.flujo, store.origen || ORIGEN_INICIAL, "Carga inicial");
+      return;
+    }
+    const d = snap.data();
+    if (Array.isArray(d.flujo)){ store.flujo = d.flujo; store.origen = d.origen || ""; store.cargado = d.cargadoISO || null; store.cargadoPor = d.cargadoPor || ""; save(); render(); }
+  }, err => setNube("err", err));
+  // Configuración compartida
+  onSnapshot(doc(db, COL.config, TEMPORADA), snap => {
+    if (snap.exists() && snap.data().cfg){ store.cfg = Object.assign({}, CFG_DEF, snap.data().cfg); save(); render(); }
+  }, err => setNube("err", err));
+  // Estados de las muestras
+  let primera = true;
+  onSnapshot(query(collection(db, COL.muestras), where("temporada", "==", TEMPORADA)), { includeMetadataChanges:true }, snap => {
+    if (primera && snap.metadata.fromCache && snap.empty) return; // esperar al servidor antes de reemplazar lo local
+    const remoto = {};
+    snap.forEach(s => { const d = s.data(); if (d.id) remoto[d.id] = { tomada:d.tomada||{}, enviada:d.enviada||{}, resultado:d.resultado||{}, actualizado:d.actualizadoISO||"", por:d.actualizadoPor||"" }; });
+    if (primera && !snap.metadata.fromCache){
+      primera = false;
+      // Sube lo que se registró en este equipo antes de conectar la base de datos
+      for (const [id, e] of Object.entries(store.estados)) if (!remoto[id] && nivelE(e) > 0){ remoto[id] = e; guardarEstadoNube(id, e, "Migración desde equipo local"); }
+    }
+    store.estados = remoto; save(); render();
+    setNube(snap.metadata.hasPendingWrites ? "pend" : snap.metadata.fromCache ? "off" : "ok");
+  }, err => setNube("err", err));
+  window.addEventListener("online", () => setNube(nubeEstado === "off" ? "conectando" : nubeEstado));
+  window.addEventListener("offline", () => setNube("off"));
+}
+
+function guardarEstadoNube(id, e, accion){
+  if (!db) return;
+  const m = plan.find(x => x.id === id) || {};
+  const ahora = new Date().toISOString();
+  const data = { id, temporada: TEMPORADA, productor: m.p||"", predio: m.pr||"", csg: m.c||"", variedad: m.variedad||"",
+    tomada: limpiarPaso(e.tomada), enviada: limpiarPaso(e.enviada), resultado: limpiarPaso(e.resultado),
+    actualizadoPor: usuario() || "Sin nombre", actualizadoISO: ahora, actualizado: fb.serverTimestamp() };
+  const ref = fb.doc(db, COL.muestras, docId(id));
+  fb.setDoc(ref, data).catch(err => { setNube("err", err); toast("No se pudo guardar en la base de datos"); });
+  fb.addDoc(fb.collection(ref, "historial"), { accion, estado: ETAPAS[nivelE(e)].t, tomada: data.tomada, enviada: data.enviada, resultado: data.resultado,
+    por: data.actualizadoPor, fechaISO: ahora, fecha: fb.serverTimestamp() }).catch(err => setNube("err", err));
+}
+function subirFlujo(flujo, origen, accion){
+  if (!db) return;
+  fb.setDoc(fb.doc(db, COL.flujo, TEMPORADA), { temporada: TEMPORADA, flujo, origen: origen||"", cargadoISO: new Date().toISOString(),
+    cargadoPor: usuario() || accion || "", cargado: fb.serverTimestamp() }).catch(err => { setNube("err", err); toast("No se pudo subir el flujo a la base de datos"); });
+}
+function subirCfg(){
+  if (!db) return;
+  fb.setDoc(fb.doc(db, COL.config, TEMPORADA), { temporada: TEMPORADA, cfg: store.cfg, actualizadoPor: usuario() || "", actualizado: fb.serverTimestamp() })
+    .catch(err => setNube("err", err));
+}
+function pedirNombre(){
+  $("#sheet").innerHTML = `<h2>¿Quién eres?</h2>
+    <p class="meta">Tu nombre queda registrado en cada cambio de estado, para saber quién tomó, envió o cargó el resultado de cada muestra.</p>
+    <div class="fields" style="display:block"><label>Nombre<input id="nomIn" value="${esc(usuario())}" placeholder="Ej.: Claudio Espinoza" autocomplete="name"></label></div>
+    <div class="actions"><button class="btn primary" id="nomOk">Guardar nombre</button></div>`;
+  $("#nomOk").onclick = () => { const v = $("#nomIn").value.trim(); if (!v){ $("#nomIn").focus(); return; } localStorage.setItem(LS_USER, v); $("#dlg").close(); setNube(nubeEstado); toast(`Registrarás los cambios como ${v}`); };
+  $("#dlg").showModal(); setTimeout(() => $("#nomIn").focus(), 50);
+}
+
+/* ===== Fechas (todo en UTC para evitar corrimientos) ===== */
+const DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const D = s => { const [y,m,d] = s.split("-").map(Number); return new Date(Date.UTC(y,m-1,d)); };
+const iso = d => d.toISOString().slice(0,10);
+const add = (d,n) => new Date(d.getTime() + n*864e5);
+const diff = (a,b) => Math.round((D(a) - D(b))/864e5);
+function hoyISO(){ const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`; }
+function fmt(s, larga){ if(!s) return "—"; const d = D(s); const t = `${DIAS[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2,"0")}-${MESES[d.getUTCMonth()]}`; return larga ? t : t; }
+function semana(s){ const d = D(s); const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const dn = (t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-dn+3); const f = new Date(Date.UTC(t.getUTCFullYear(),0,4)); return 1 + Math.round(((t-f)/864e5 - 3 + ((f.getUTCDay()+6)%7))/7); }
+function lunesDe(s){ const d = D(s); return iso(add(d, -((d.getUTCDay()+6)%7))); }
+
+/* El laboratorio retira por la mañana y entrega al día hábil siguiente por la tarde.
+   Fecha límite de toma = último día hábil cuyo resultado llega ANTES del día de inicio de cosecha. */
+function esHabil(d){ const w = d.getUTCDay(); return w !== 0 && (w !== 6 || store.cfg.labSabado); }
+function siguienteHabil(d){ let x = add(d,1); while(!esHabil(x)) x = add(x,1); return x; }
+function limiteToma(cosechaISO){
+  const c = D(cosechaISO);
+  let x = add(c, -1 - (Number(store.cfg.anticipoExtra)||0));
+  for (let i=0;i<20;i++){ if (esHabil(x) && siguienteHabil(x) < c) return iso(x); x = add(x,-1); }
+  return iso(add(c,-2));
+}
+
+/* ===== Plan de muestreo =====
+   Campo = productor + predio + CSG. Se muestrea la variedad que se cosecha primero.
+   Si otra variedad del mismo campo parte más de N días después, lleva su propia muestra. */
+function construirPlan(){
+  const N = Number(store.cfg.difVariedades)||15;
+  const campos = new Map();
+  for (const r of store.flujo){
+    const fechas = Object.keys(r.d||{}).filter(k => r.d[k] > 0).sort();
+    const key = [r.p, r.pr, r.c].join("|");
+    if (!campos.has(key)) campos.set(key, { key, p:r.p, pr:r.pr, z:r.z, c:r.c, vars:[] });
+    const g = campos.get(key);
+    const ex = g.vars.find(v => v.v === r.v);
+    if (ex){ ex.fechas = [...new Set(ex.fechas.concat(fechas))].sort(); ex.kg += (r.kg||0); ex.pl = ex.pl||r.pl; }
+    else g.vars.push({ v:r.v, fechas, kg:r.kg||0, pl:r.pl });
+  }
+  const out = [];
+  for (const g of campos.values()){
+    const conFecha = g.vars.filter(v => v.fechas.length).map(v => ({...v, inicio:v.fechas[0]})).sort((a,b)=> a.inicio < b.inicio ? -1 : 1);
+    const sinFecha = g.vars.filter(v => !v.fechas.length).map(v=>v.v);
+    let actual = null;
+    for (const v of conFecha){
+      if (!actual || diff(v.inicio, actual.cosecha) > N){
+        actual = { id: g.key + "|" + v.v, campo: g, p:g.p, pr:g.pr, z:g.z, c:g.c, pl:v.pl, variedad: v.v, cosecha: v.inicio, kg: v.kg, cubre: [], sinFecha };
+        actual.limite = limiteToma(v.inicio);
+        out.push(actual);
+      } else {
+        actual.cubre.push({ v: v.v, inicio: v.inicio, kg: v.kg });
+      }
+    }
+  }
+  out.sort((a,b)=> a.limite < b.limite ? -1 : a.limite > b.limite ? 1 : a.pr.localeCompare(b.pr));
+  return out;
+}
+
+/* ===== Estado de cada muestra ===== */
+const ETAPAS = [
+  { k:"pendiente", t:"No tomada", c:"var(--urgent)" },
+  { k:"tomada",    t:"Tomada",    c:"var(--week)" },
+  { k:"enviada",   t:"Enviada al laboratorio", c:"var(--sent)" },
+  { k:"resultado", t:"Resultado entregado", c:"var(--ok)" }
+];
+function est(id){ return store.estados[id] || {}; }
+function etapa(m){ const e = est(m.id); if (e.resultado && e.resultado.ok) return 3; if (e.enviada && e.enviada.ok) return 2; if (e.tomada && e.tomada.ok) return 1; return 0; }
+function urgencia(m){
+  const n = etapa(m), hoy = hoyISO();
+  if (n === 3){ const r = est(m.id).resultado; return r.dictamen === "No cumple" ? {c:"var(--bad)", t:"No cumple LMR"} : {c:"var(--ok)", t:""}; }
+  if (n === 2){ return diff(hoy, est(m.id).enviada.fecha||hoy) >= 2 ? {c:"var(--late)", t:"Resultado atrasado"} : {c:"var(--sent)", t:"Esperando resultado"}; }
+  const d = diff(m.limite, hoy);
+  if (diff(m.cosecha, hoy) <= 0 && n === 0) return {c:"var(--late)", t:"Cosecha ya iniciada"};
+  if (d < 0) return {c:"var(--late)", t: n===1 ? "Enviar hoy" : "Fuera de plazo"};
+  if (d === 0) return {c:"var(--urgent)", t: n===1 ? "Enviar hoy" : "Tomar hoy"};
+  if (d <= 2) return {c:"var(--urgent)", t:`En ${d} día${d>1?"s":""}`};
+  if (d <= 7) return {c:"var(--week)", t:"Esta semana"};
+  return {c:"var(--future)", t:""};
+}
+function vigenciaHasta(m){ const t = est(m.id).tomada; return t && t.ok && t.fecha ? iso(add(D(t.fecha), Number(store.cfg.vigencia)||15)) : null; }
+function avisoVigencia(m){
+  const v = vigenciaHasta(m); if (!v) return "";
+  const fuera = m.cubre.filter(x => x.inicio > v).map(x=>x.v);
+  return fuera.length ? `Vigencia hasta ${fmt(v)}: no alcanza a cubrir ${fuera.join(", ")}` : "";
+}
+
+/* ===== Render ===== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const kg = n => (Math.round(n)||0).toLocaleString("es-CL");
+
+function filtrados(){
+  const q = ui.q.trim().toLowerCase();
+  return plan.filter(m => {
+    const n = etapa(m);
+    if (ui.filtro !== "todas" && ETAPAS[n].k !== ui.filtro) return false;
+    if (ui.semana && semana(m.limite) !== ui.semana) return false;
+    if (q && ![m.p,m.pr,m.z,m.c,m.variedad,...m.cubre.map(x=>x.v)].join(" ").toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderCounts(){
+  const c = [0,0,0,0]; plan.forEach(m => c[etapa(m)]++);
+  const cls = ["c-pend","c-tom","c-env","c-res"], lab = ["No tomadas","Tomadas","Enviadas","Con resultado"];
+  $("#counts").innerHTML = ETAPAS.map((e,i)=>`<button class="count ${cls[i]}" data-f="${e.k}" aria-pressed="${ui.filtro===e.k}"><b>${c[i]}</b><span>${lab[i]}</span></button>`).join("");
+}
+function renderWeeks(){
+  const base = plan.filter(m => ui.filtro==="todas" || ETAPAS[etapa(m)].k===ui.filtro);
+  const map = new Map();
+  base.forEach(m => { const w = semana(m.limite); if(!map.has(w)) map.set(w,{w, lunes:lunesDe(m.limite), n:0}); map.get(w).n++; });
+  const ws = [...map.values()].sort((a,b)=> a.lunes < b.lunes ? -1 : 1);
+  $("#weeks").innerHTML = `<button class="wk" data-w="" aria-pressed="${!ui.semana}">Todas<em>${base.length}</em></button>` +
+    ws.map(w => `<button class="wk" data-w="${w.w}" aria-pressed="${ui.semana===w.w}">Sem ${w.w}<em>${fmt(w.lunes).slice(4)} · ${w.n}</em></button>`).join("");
+}
+
+function cardHTML(m){
+  const n = etapa(m), u = urgencia(m), st = ETAPAS[n], av = avisoVigencia(m);
+  return `<article class="card" data-id="${esc(m.id)}" style="--u:${u.c};--st:${st.c}" tabindex="0">
+    <div class="row1"><span class="predio">${esc(m.pr)}</span><span class="var">${esc(m.variedad)}</span></div>
+    <div class="prod">${esc(m.p)} · CSG ${esc(m.c)} · ${esc(m.z)}</div>
+    <div class="dates">
+      <div class="lim"><span>Tomar a más tardar</span><b>${fmt(m.limite)}</b>${u.t?`<span class="badge-u">${u.t}</span>`:""}</div>
+      <div><span>Inicio cosecha</span><b>${fmt(m.cosecha)}</b></div>
+      <div><span>Kg flujo</span><b>${kg(m.kg)}</b></div>
+    </div>
+    ${m.cubre.length?`<div class="covers">Esta muestra también cubre: ${m.cubre.map(x=>`${esc(x.v)} (${fmt(x.inicio)})`).join(", ")}</div>`:""}
+    ${av?`<div class="warn">${esc(av)}</div>`:""}
+    <div class="steps">${[1,2,3].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</div>
+    <div class="stlabel">${st.t}</div>
+  </article>`;
+}
+
+function renderLista(list){
+  if (!list.length) return vacio();
+  let html = "", wk = null;
+  for (const m of list){
+    const w = semana(m.limite);
+    if (w !== wk){ wk = w; html += `<h2 class="group-h">Semana ${w}, desde el ${fmt(lunesDe(m.limite))}</h2>`; }
+    html += cardHTML(m);
+  }
+  return html;
+}
+
+function renderTabla(list){
+  if (!list.length) return vacio();
+  const rows = list.map(m => {
+    const e = est(m.id), n = etapa(m), st = ETAPAS[n], u = urgencia(m), v = vigenciaHasta(m);
+    return `<tr data-id="${esc(m.id)}" style="--st:${st.c}">
+      <td class="stick"><b>${esc(m.pr)}</b><span class="sub">${esc(m.p)}</span></td>
+      <td><span class="pill">${st.t}</span>${u.t?`<span class="sub" style="color:${u.c}">${u.t}</span>`:""}</td>
+      <td><b>${esc(m.variedad)}</b>${m.cubre.length?`<span class="sub">+ ${m.cubre.map(x=>esc(x.v)).join(", ")}</span>`:""}</td>
+      <td>${esc(m.c)}<span class="sub">${esc(m.z)}</span></td>
+      <td>${fmt(m.cosecha)}<span class="sub">Sem ${semana(m.cosecha)}</span></td>
+      <td><b style="color:${u.c}">${fmt(m.limite)}</b></td>
+      <td>${e.tomada?.ok?fmt(e.tomada.fecha):"—"}<span class="sub">${esc(e.tomada?.resp||"")}</span></td>
+      <td>${e.enviada?.ok?fmt(e.enviada.fecha):"—"}<span class="sub">${esc(e.enviada?.lab||"")} ${esc(e.enviada?.folio||"")}</span></td>
+      <td>${e.resultado?.ok?fmt(e.resultado.fecha):"—"}<span class="sub">${esc(e.resultado?.dictamen||"")}</span></td>
+      <td>${v?fmt(v):"—"}</td>
+      <td>${kg(m.kg)}</td>
+    </tr>`;
+  }).join("");
+  return `<p class="swipehint">Desliza la tabla hacia el lado para ver todas las columnas. Toca una fila para actualizarla.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th class="stick">Predio</th><th>Estado</th><th>Variedad muestreada</th><th>CSG</th><th>Inicio cosecha</th><th>Tomar a más tardar</th><th>Tomada</th><th>Enviada</th><th>Resultado</th><th>Vigencia hasta</th><th>Kg flujo</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function renderFlujo(){
+  const q = ui.q.trim().toLowerCase();
+  const filas = store.flujo.filter(r => !q || [r.p,r.pr,r.v,r.c,r.z].join(" ").toLowerCase().includes(q));
+  const todas = [...new Set(filas.flatMap(r => Object.keys(r.d||{})))].sort();
+  if (!todas.length) return vacio();
+  const fechas = []; for (let d = D(todas[0]); iso(d) <= todas[todas.length-1]; d = add(d,1)) fechas.push(iso(d));
+  const hoy = hoyISO();
+  const head = fechas.map(f => `<th ${f===hoy?'data-hoy style="color:var(--brand)"':""}>${semana(f)}<br>${fmt(f)}</th>`).join("");
+  const body = filas.map(r => {
+    const ks = Object.keys(r.d||{}).filter(k=>r.d[k]>0).sort(), first = ks[0];
+    return `<tr><td class="stick"><b>${esc(r.pr)}</b><span class="sub">${esc(r.v)}</span></td>${fechas.map(f => r.d[f] ? `<td class="k ${f===first?"first":"hit"}">${kg(r.d[f])}</td>` : `<td></td>`).join("")}</tr>`;
+  }).join("");
+  return `<p class="swipehint">Flujo diario cargado. En magenta, el primer día de cosecha de cada variedad. Desliza hacia el lado para recorrer las semanas.</p>
+  <div class="tablewrap flow"><table style="min-width:${180+fechas.length*72}px"><thead><tr><th class="stick">Predio / variedad</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function vacio(){ return `<div class="empty">No hay muestras con estos filtros.<br><button class="btn ghost" id="btnLimpiar">Ver todas</button></div>`; }
+
+function render(){
+  plan = construirPlan();
+  $("#subtitle").textContent = store.cargado ? `Flujo del ${fmt(store.cargado.slice(0,10))}${store.cargadoPor?` por ${store.cargadoPor}`:""}` : "Cerezas T2026-27";
+  const isFlujo = ui.view === "flujo";
+  $("#counts").style.display = isFlujo ? "none" : "";
+  $("#weeks").style.display = isFlujo ? "none" : "";
+  renderCounts(); renderWeeks();
+  const list = filtrados();
+  $("#view").innerHTML = ui.view === "lista" ? renderLista(list) : ui.view === "tabla" ? renderTabla(list) : renderFlujo();
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === ui.view));
+  if (isFlujo){ const w = $(".tablewrap"), th = $("th[data-hoy]"); if (w && th) w.scrollLeft = Math.max(0, th.offsetLeft - 130); }
+}
+
+/* ===== Detalle / checklist ===== */
+function abrir(id){
+  const m = plan.find(x => x.id === id); if (!m) return;
+  const e = JSON.parse(JSON.stringify(est(id)));
+  e.tomada = e.tomada || {}; e.enviada = e.enviada || {}; e.resultado = e.resultado || {};
+  const hoy = hoyISO();
+  const n = etapa(m), u = urgencia(m);
+  const step = (k, q, fields, color) => `
+    <div class="check ${e[k].ok?"done":""}" style="--st:${color}" data-k="${k}">
+      <label class="q"><input type="checkbox" ${e[k].ok?"checked":""} data-chk="${k}"> ${q}</label>
+      <div class="fields ${e[k].ok?"":"hide"}">${fields}</div>
+    </div>`;
+  $("#sheet").innerHTML = `
+    <h2>${esc(m.pr)} <span style="color:var(--brand)">${esc(m.variedad)}</span></h2>
+    <div class="meta">${esc(m.p)} · CSG ${esc(m.c)} · ${esc(m.z)}${m.pl?` · ${esc(m.pl)}`:""}${e.por?`<br>Último cambio: ${esc(e.por)}, ${fmt((e.actualizado||"").slice(0,10))} ${(e.actualizado||"").slice(11,16)} UTC`:""}</div>
+    <div class="facts">
+      <div><span>Inicio cosecha</span>${fmt(m.cosecha)} (sem ${semana(m.cosecha)})</div>
+      <div><span>Tomar a más tardar</span><b style="color:${u.c}">${fmt(m.limite)}</b></div>
+      <div><span>Kg flujo variedad</span>${kg(m.kg)}</div>
+      <div><span>Cubre además</span>${m.cubre.length? m.cubre.map(x=>`${esc(x.v)} ${fmt(x.inicio)}`).join("<br>") : "Solo esta variedad"}</div>
+      ${m.sinFecha.length?`<div class="full" style="grid-column:1/-1"><span>Sin fecha en el flujo</span>${m.sinFecha.map(esc).join(", ")}</div>`:""}
+    </div>
+    ${step("tomada","¿Se tomó la muestra?",`
+      <label>Fecha<input type="date" data-f="tomada.fecha" value="${e.tomada.fecha||""}"></label>
+      <label>Responsable<input data-f="tomada.resp" value="${esc(e.tomada.resp||usuario())}" placeholder="Nombre"></label>
+      <label class="full">Cuartel / observación<input data-f="tomada.obs" value="${esc(e.tomada.obs||"")}"></label>`, "var(--week)")}
+    ${step("enviada","¿Se envió la muestra?",`
+      <label>Fecha de envío<input type="date" data-f="enviada.fecha" value="${e.enviada.fecha||""}"></label>
+      <label>Laboratorio<input data-f="enviada.lab" value="${esc(e.enviada.lab||"")}" placeholder="Laboratorio" list="labs"></label>
+      <label class="full">N° de muestra / folio<input data-f="enviada.folio" value="${esc(e.enviada.folio||"")}"></label>`, "var(--sent)")}
+    ${step("resultado","¿Llegó el resultado?",`
+      <label>Fecha resultado<input type="date" data-f="resultado.fecha" value="${e.resultado.fecha||""}"></label>
+      <label>Dictamen<select data-f="resultado.dictamen">
+        ${["","Cumple","Cumple con observación","No cumple"].map(o=>`<option ${e.resultado.dictamen===o?"selected":""} value="${o}">${o||"Elegir"}</option>`).join("")}
+      </select></label>
+      <label class="full">Ingredientes activos detectados / observación<textarea rows="2" data-f="resultado.obs">${esc(e.resultado.obs||"")}</textarea></label>`, "var(--ok)")}
+    <datalist id="labs">${[...new Set(Object.values(store.estados).map(x=>x.enviada?.lab).filter(Boolean))].map(l=>`<option value="${esc(l)}">`).join("")}</datalist>
+    <div class="actions"><button class="btn ghost" id="cerrar">Cancelar</button><button class="btn primary" id="guardar">Guardar</button></div>`;
+
+  const sheet = $("#sheet");
+  sheet.querySelectorAll("[data-chk]").forEach(ch => ch.addEventListener("change", () => {
+    const k = ch.dataset.chk, idx = ["tomada","enviada","resultado"].indexOf(k);
+    const box = ch.closest(".check");
+    if (ch.checked){
+      // marcar una etapa marca también las anteriores
+      ["tomada","enviada","resultado"].slice(0, idx+1).forEach(kk => {
+        const c = sheet.querySelector(`[data-chk="${kk}"]`); c.checked = true;
+        const b = c.closest(".check"); b.classList.add("done"); b.querySelector(".fields").classList.remove("hide");
+        const f = b.querySelector('input[type=date]'); if (!f.value) f.value = hoy;
+      });
+    } else {
+      ["tomada","enviada","resultado"].slice(idx).forEach(kk => {
+        const c = sheet.querySelector(`[data-chk="${kk}"]`); c.checked = false;
+        const b = c.closest(".check"); b.classList.remove("done"); b.querySelector(".fields").classList.add("hide");
+      });
+    }
+  }));
+  $("#cerrar").onclick = () => $("#dlg").close();
+  $("#guardar").onclick = () => {
+    const nuevo = {};
+    ["tomada","enviada","resultado"].forEach(k => {
+      const ok = sheet.querySelector(`[data-chk="${k}"]`).checked;
+      const o = { ok };
+      sheet.querySelectorAll(`[data-f^="${k}."]`).forEach(inp => o[inp.dataset.f.split(".")[1]] = inp.value.trim());
+      nuevo[k] = o;
+    });
+    nuevo.actualizado = new Date().toISOString(); nuevo.por = usuario();
+    const antes = nivelE(est(id)), despues = nivelE(nuevo);
+    store.estados[id] = nuevo; save(); $("#dlg").close(); render();
+    guardarEstadoNube(id, nuevo, despues > antes ? `Avanza a: ${ETAPAS[despues].t}` : despues < antes ? `Retrocede a: ${ETAPAS[despues].t}` : "Edición de datos");
+    toast(`${m.pr} ${m.variedad}: ${ETAPAS[etapa(m)].t.toLowerCase()}`);
+  };
+  $("#dlg").showModal();
+}
+
+/* ===== Importar flujo desde el Excel ===== */
+function normal(s){ return String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim().toLowerCase(); }
+function aISO(v){
+  if (v instanceof Date){ const t = new Date(v.getTime()+432e5); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
+  if (typeof v === "number" && v > 40000 && v < 60000){ return iso(new Date(Date.UTC(1899,11,30) + Math.round(v)*864e5)); }
+  return null;
+}
+async function importar(file){
+  if (!window.XLSX){ toast("Falta la librería de Excel: revisa tu conexión y vuelve a intentar"); return; }
+  const wb = XLSX.read(await file.arrayBuffer(), { type:"array", cellDates:true });
+  const nombre = wb.SheetNames.find(n => normal(n) === "flujo diario") || wb.SheetNames.find(n => normal(n).includes("flujo diario"));
+  if (!nombre){ toast("El archivo no tiene una hoja llamada FLUJO DIARIO"); return; }
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header:1, raw:true, defval:null });
+  const h = rows.findIndex(r => r && normal(r[0]).startsWith("razon social"));
+  if (h < 0){ toast("No encontré la fila de encabezados (Razon social, Predio, Variedad…)"); return; }
+  const H = rows[h].map(normal);
+  const col = (...ps) => H.findIndex(x => ps.some(p => x.startsWith(p)));
+  const cP = 0, cPr = col("predio"), cZ = col("zona"), cC = col("csg"), cPl = col("planta"), cV = col("variedad"), cKg = col("kg flujo");
+  const fechaFila = rows[h-1] || [];
+  const fechas = {};
+  rows[h].forEach((_, j) => { const f = aISO(fechaFila[j]); if (f) fechas[j] = f; });
+  if (!Object.keys(fechas).length){ toast("No encontré la fila de fechas sobre los encabezados"); return; }
+  const flujo = [];
+  for (let i = h+1; i < rows.length; i++){
+    const r = rows[i]; if (!r || !r[cP] || !r[cV]) continue;
+    const d = {}; for (const j in fechas){ const n = Number(r[j]); if (n > 0) d[fechas[j]] = n; }
+    flujo.push({ p:String(r[cP]).trim(), pr:String(r[cPr]??"").trim(), z:String(r[cZ]??"").trim(), c:String(r[cC]??"").trim(), pl:String(r[cPl]??"").trim(), v:String(r[cV]).trim(), kg:Number(r[cKg])||0, d });
+  }
+  if (!flujo.length){ toast("La hoja FLUJO DIARIO no tiene filas con productor y variedad"); return; }
+  const antes = construirPlan().map(m=>m.id);
+  store.flujo = flujo; store.origen = file.name; store.cargado = new Date().toISOString(); store.cargadoPor = usuario(); save();
+  subirFlujo(flujo, file.name, "Importación");
+  render();
+  const nuevas = plan.filter(m => !antes.includes(m.id)).length;
+  toast(`Flujo actualizado: ${flujo.length} filas, ${plan.length} muestras${nuevas?`, ${nuevas} nuevas`:""}. Los estados registrados se mantienen.`);
+}
+
+/* ===== Exportar control ===== */
+function exportar(){
+  const filas = plan.map(m => { const e = est(m.id), v = vigenciaHasta(m); return {
+    "Productor": m.p, "Predio": m.pr, "Zona": m.z, "CSG": m.c, "Variedad muestreada": m.variedad,
+    "Cubre además": m.cubre.map(x=>`${x.v} (${x.inicio})`).join(", "),
+    "Inicio cosecha": m.cosecha, "Semana cosecha": semana(m.cosecha), "Tomar a más tardar": m.limite,
+    "Estado": ETAPAS[etapa(m)].t,
+    "Fecha toma": e.tomada?.ok ? e.tomada.fecha : "", "Responsable": e.tomada?.resp||"", "Obs. toma": e.tomada?.obs||"",
+    "Fecha envío": e.enviada?.ok ? e.enviada.fecha : "", "Laboratorio": e.enviada?.lab||"", "N° muestra": e.enviada?.folio||"",
+    "Fecha resultado": e.resultado?.ok ? e.resultado.fecha : "", "Dictamen": e.resultado?.dictamen||"", "Obs. resultado": e.resultado?.obs||"",
+    "Vigencia hasta": v||"", "Kg flujo": m.kg }; });
+  if (window.XLSX){
+    const ws = XLSX.utils.json_to_sheet(filas); ws["!cols"] = Object.keys(filas[0]||{}).map(k => ({ wch: Math.max(10, k.length+2) }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Control muestras");
+    XLSX.writeFile(wb, `Control_multiresiduo_${hoyISO()}.xlsx`);
+  } else {
+    const cols = Object.keys(filas[0]||{});
+    const csv = [cols.join(";")].concat(filas.map(f => cols.map(c => `"${String(f[c]).replace(/"/g,'""')}"`).join(";"))).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv"})); a.download = `Control_multiresiduo_${hoyISO()}.csv`; a.click();
+  }
+}
+
+/* ===== Configuración ===== */
+function abrirCfg(){
+  const c = store.cfg;
+  $("#sheet").innerHTML = `<h2>Configuración</h2>
+    <div class="cfg">
+      <label>Días de diferencia entre variedades para tomar otra muestra<input type="number" min="1" id="cDif" value="${c.difVariedades}"></label>
+      <label>Vigencia del análisis (días desde la toma)<input type="number" min="1" id="cVig" value="${c.vigencia}"></label>
+      <label>Días extra de anticipación a la toma<input type="number" min="0" id="cAnt" value="${c.anticipoExtra}"></label>
+      <label>El laboratorio entrega resultados el sábado<input type="checkbox" id="cSab" ${c.labSabado?"checked":""} style="width:22px;height:22px;accent-color:var(--brand)"></label>
+      <p>Regla de fecha límite: el laboratorio retira en la mañana y entrega al día hábil siguiente en la tarde, así que la muestra debe salir a más tardar el último día hábil cuyo resultado llega antes del inicio de cosecha.</p>
+      <p>Origen del flujo: ${esc(store.origen||"")}</p>
+      <p>Base de datos: ${db ? `proyecto ${esc(firebaseConfig.projectId)}, temporada ${TEMPORADA}` : "no configurada (solo este equipo)"}</p>
+    </div>
+    <div class="actions">${db ? "" : `<button class="btn ghost" id="reset">Borrar todos los estados</button>`}<button class="btn primary" id="gCfg">Guardar</button></div>`;
+  $("#gCfg").onclick = () => { store.cfg = { difVariedades:+$("#cDif").value||15, vigencia:+$("#cVig").value||15, anticipoExtra:+$("#cAnt").value||0, labSabado:$("#cSab").checked }; save(); subirCfg(); $("#dlg").close(); render(); toast(db ? "Configuración guardada para todo el equipo" : "Configuración guardada"); };
+  if ($("#reset")) $("#reset").onclick = () => { if (confirm("Se borrarán todos los estados de muestras registrados en este dispositivo. ¿Continuar?")){ store.estados = {}; save(); $("#dlg").close(); render(); toast("Estados borrados"); } };
+  $("#dlg").showModal();
+}
+
+/* ===== Eventos ===== */
+let tt; function toast(t){ const el = $("#toast"); el.textContent = t; el.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove("show"), 3200); }
+document.addEventListener("click", ev => {
+  const t = ev.target;
+  const tab = t.closest(".tabs button"); if (tab){ ui.view = tab.dataset.view; render(); window.scrollTo(0,0); return; }
+  const cnt = t.closest(".count"); if (cnt){ ui.filtro = ui.filtro === cnt.dataset.f ? "todas" : cnt.dataset.f; ui.semana = null; render(); return; }
+  const wk = t.closest(".wk"); if (wk){ ui.semana = wk.dataset.w ? +wk.dataset.w : null; render(); return; }
+  if (t.closest("#btnLimpiar")){ ui = { ...ui, filtro:"todas", semana:null, q:"" }; $("#q").value = ""; render(); return; }
+  const card = t.closest("[data-id]"); if (card && !t.closest("dialog")){ abrir(card.dataset.id); return; }
+});
+document.addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.classList?.contains("card")) abrir(ev.target.dataset.id); });
+$("#dlg").addEventListener("click", ev => { if (ev.target.id === "dlg") $("#dlg").close(); });
+$("#q").addEventListener("input", ev => { ui.q = ev.target.value; render(); });
+$("#btnImport").onclick = () => $("#fileIn").click();
+$("#fileIn").onchange = ev => { const f = ev.target.files[0]; if (f) importar(f).catch(e => toast("No se pudo leer el archivo: " + e.message)); ev.target.value = ""; };
+$("#btnExport").onclick = exportar;
+$("#btnCfg").onclick = abrirCfg;
+$("#netrow").onclick = () => { if (db) pedirNombre(); else toast("Configura Firebase en index.html para compartir los datos"); };
+
+render();
+initNube();
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
