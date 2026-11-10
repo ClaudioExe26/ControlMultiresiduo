@@ -100,6 +100,19 @@ main{max-width:980px;margin:0 auto;padding:12px 12px 90px}
 .stlabel{font-size:.78rem;font-weight:600;margin-top:5px;color:var(--st)}
 .card .dates .badge-u{display:inline;font-size:.74rem;font-weight:700;color:var(--u);margin-left:6px}
 
+.axchips{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:10px}
+.axchip{font-family:var(--f-cond);letter-spacing:-.1px;border-radius:8px;padding:6px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:.74rem;font-weight:700;background:var(--step-off);color:var(--muted)}
+.axchip.on{background:var(--sent);color:#fff}
+.axchip.pk.on{background:var(--ok)}
+.axchip.no{background:color-mix(in srgb,var(--late) 18%,transparent);color:var(--late)}
+.radios{display:flex;gap:8px;grid-column:1/-1}
+.fields .radios label{flex:1;flex-direction:row;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--line);border-radius:10px;padding:9px;font-size:.95rem;color:var(--ink);cursor:pointer}
+.fields .radios input{accent-color:var(--brand);width:18px;height:18px}
+.faltas{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
+.fields .faltas label{flex-direction:row;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:.85rem;color:var(--ink);cursor:pointer}
+.fields .faltas input{accent-color:var(--late);width:16px;height:16px}
+.hint{grid-column:1/-1;font-size:.84rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px}
+.hint b{color:var(--ink)}
 /* Tabla con desplazamiento lateral */
 .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:pan-x pan-y;background:var(--surface);border:1px solid var(--line);border-radius:12px;max-height:calc(100vh - 260px)}
 table{border-collapse:separate;border-spacing:0;min-width:1180px;width:100%;font-size:.88rem}
@@ -117,6 +130,9 @@ td .sub{display:block;color:var(--muted);font-size:.78rem}
 /* Flujo */
 .flow th,.flow td{padding:6px 8px}
 .flow td.stick{font-size:.82rem}
+.flow tr.gh td{background:var(--bg);font-family:var(--f-cond);font-weight:700;font-size:.95rem;color:var(--brand);padding:7px 8px;border-bottom:1px solid var(--line)}
+.flow tr.gh td.stick{background:var(--bg);white-space:nowrap;max-width:none;overflow:visible}
+.flow .var2{color:var(--brand);font-weight:600}
 .flow td.k{text-align:right;font-variant-numeric:tabular-nums}
 .flow td.hit{background:color-mix(in srgb,var(--brand) 16%,transparent);font-weight:600}
 .flow td.first{background:var(--brand);color:#fff;font-weight:700}
@@ -169,6 +185,7 @@ dialog::backdrop{background:rgba(20,10,16,.45)}
   <nav class="tabs" role="tablist">
     <button role="tab" data-view="lista" aria-selected="true">Próximas</button>
     <button role="tab" data-view="tabla" aria-selected="false">Control</button>
+    <button role="tab" data-view="anexos" aria-selected="false">Anexos</button>
     <button role="tab" data-view="flujo" aria-selected="false">Flujo</button>
   </nav>
 </header>
@@ -210,7 +227,7 @@ const FLUJO_INICIAL = [{"p":"Diego Antonio Pacheco Alvarez","pr":"Taitao","z":"R
 const ORIGEN_INICIAL = "Estimación_Cerezas (T2026-27), hoja FLUJO DIARIO";
 
 const LS_KEY = "frutea-multiresiduo-v1";
-const CFG_DEF = { difVariedades: 15, vigencia: 15, labSabado: false, anticipoExtra: 0 };
+const CFG_DEF = { difVariedades: 15, vigencia: 15, labSabado: false, anticipoExtra: 0, anexosAntes: 1 };
 
 let store = load();
 let ui = { view: "lista", filtro: "todas", semana: null, q: "" };
@@ -231,6 +248,7 @@ let fb = null, db = null, nubeEstado = "local";
 const usuario = () => localStorage.getItem(LS_USER) || "";
 const docId = id => id.replace(/\//g, "∕");
 const limpiarPaso = o => { const x = { ok: !!(o && o.ok) }; for (const [k,v] of Object.entries(o||{})) if (k !== "ok") x[k] = String(v ?? ""); return x; };
+const limpiarAnexos = a0 => { const a = normAx(a0); return { existe: limpiarPaso(a.existe), completo: limpiarPaso(a.completo), multi: limpiarPaso(a.multi), fechas: limpiarPaso(a.fechas), listo: limpiarPaso(a.listo), obs: String(a.obs ?? "") }; };
 const nivelE = e => (e?.resultado?.ok ? 3 : e?.enviada?.ok ? 2 : e?.tomada?.ok ? 1 : 0);
 
 function setNube(s, err){
@@ -280,11 +298,11 @@ function escuchar(){
   onSnapshot(query(collection(db, COL.muestras), where("temporada", "==", TEMPORADA)), { includeMetadataChanges:true }, snap => {
     if (primera && snap.metadata.fromCache && snap.empty) return; // esperar al servidor antes de reemplazar lo local
     const remoto = {};
-    snap.forEach(s => { const d = s.data(); if (d.id) remoto[d.id] = { tomada:d.tomada||{}, enviada:d.enviada||{}, resultado:d.resultado||{}, actualizado:d.actualizadoISO||"", por:d.actualizadoPor||"" }; });
+    snap.forEach(s => { const d = s.data(); if (d.id) remoto[d.id] = { tomada:d.tomada||{}, enviada:d.enviada||{}, resultado:d.resultado||{}, anexos:d.anexos||{}, actualizado:d.actualizadoISO||"", por:d.actualizadoPor||"" }; });
     if (primera && !snap.metadata.fromCache){
       primera = false;
       // Sube lo que se registró en este equipo antes de conectar la base de datos
-      for (const [id, e] of Object.entries(store.estados)) if (!remoto[id] && nivelE(e) > 0){ remoto[id] = e; guardarEstadoNube(id, e, "Migración desde equipo local"); }
+      for (const [id, e] of Object.entries(store.estados)) if (!remoto[id] && (nivelE(e) > 0 || axE(e) > 0)){ remoto[id] = e; guardarEstadoNube(id, e, "Migración desde equipo local"); }
     }
     store.estados = remoto; save(); render();
     setNube(snap.metadata.hasPendingWrites ? "pend" : snap.metadata.fromCache ? "off" : "ok");
@@ -298,11 +316,11 @@ function guardarEstadoNube(id, e, accion){
   const m = plan.find(x => x.id === id) || {};
   const ahora = new Date().toISOString();
   const data = { id, temporada: TEMPORADA, productor: m.p||"", predio: m.pr||"", csg: m.c||"", variedad: m.variedad||"",
-    tomada: limpiarPaso(e.tomada), enviada: limpiarPaso(e.enviada), resultado: limpiarPaso(e.resultado),
+    tomada: limpiarPaso(e.tomada), enviada: limpiarPaso(e.enviada), resultado: limpiarPaso(e.resultado), anexos: limpiarAnexos(e.anexos),
     actualizadoPor: usuario() || "Sin nombre", actualizadoISO: ahora, actualizado: fb.serverTimestamp() };
   const ref = fb.doc(db, COL.muestras, docId(id));
   fb.setDoc(ref, data).catch(err => { setNube("err", err); toast("No se pudo guardar en la base de datos"); });
-  fb.addDoc(fb.collection(ref, "historial"), { accion, estado: ETAPAS[nivelE(e)].t, tomada: data.tomada, enviada: data.enviada, resultado: data.resultado,
+  fb.addDoc(fb.collection(ref, "historial"), { accion, estado: ETAPAS[nivelE(e)].t, tomada: data.tomada, enviada: data.enviada, resultado: data.resultado, anexos: data.anexos,
     por: data.actualizadoPor, fechaISO: ahora, fecha: fb.serverTimestamp() }).catch(err => setNube("err", err));
 }
 function subirFlujo(flujo, origen, accion){
@@ -369,11 +387,13 @@ function construirPlan(){
     let actual = null;
     for (const v of conFecha){
       if (!actual || diff(v.inicio, actual.cosecha) > N){
-        actual = { id: g.key + "|" + v.v, campo: g, p:g.p, pr:g.pr, z:g.z, c:g.c, pl:v.pl, variedad: v.v, cosecha: v.inicio, kg: v.kg, cubre: [], sinFecha };
+        actual = { id: g.key + "|" + v.v, campo: g, p:g.p, pr:g.pr, z:g.z, c:g.c, pl:v.pl, variedad: v.v, cosecha: v.inicio, fin: v.fechas[v.fechas.length-1], kg: v.kg, cubre: [], sinFecha };
         actual.limite = limiteToma(v.inicio);
+        actual.limiteAx = iso(add(D(v.inicio), -(Number(store.cfg.anexosAntes) || 0)));
         out.push(actual);
       } else {
         actual.cubre.push({ v: v.v, inicio: v.inicio, kg: v.kg });
+        const f = v.fechas[v.fechas.length-1]; if (f > actual.fin) actual.fin = f;
       }
     }
   }
@@ -388,6 +408,55 @@ const ETAPAS = [
   { k:"enviada",   t:"Enviada al laboratorio", c:"var(--sent)" },
   { k:"resultado", t:"Resultado entregado", c:"var(--ok)" }
 ];
+/* ===== Archivo de Anexos 1, 2 y 3 (un archivo por muestra: mismo CSG y mismas variedades) =====
+   Pasos: existe el archivo → está completo (si no, qué falta) → completado con multiresiduo
+          → fechas actualizadas → listo para enviar a planta */
+const AXP = [
+  ["existe",   "¿Existe el archivo con los Anexos 1, 2 y 3?", "Archivo"],
+  ["completo", "¿Están completos los anexos?",                  "Completo"],
+  ["multi",    "¿Se completó con la información multiresiduo?", "Multires."],
+  ["fechas",   "¿Están actualizadas las fechas?",               "Fechas"],
+  ["listo",    "¿Archivo listo para enviar a planta?",          "Listo"]
+];
+const AX = [
+  { k:"ax0", t:"Sin archivo",          c:"var(--urgent)" },
+  { k:"ax1", t:"Anexos incompletos",   c:"var(--late)" },
+  { k:"ax2", t:"En revisión",          c:"var(--week)" },
+  { k:"ax3", t:"Listo para planta",    c:"var(--ok)" }
+];
+const FALTAS = ["Anexo 1: aplicaciones", "Anexo 2: frutos caídos", "Anexo 3: monitoreo", "Datos del encabezado", "Firma"];
+// Convierte el formato anterior (anexos por separado) al nuevo
+function normAx(a){
+  a = a || {};
+  if (a.existe || a.completo || a.listo) return a;
+  if (!(a.a1 || a.a2 || a.a3 || a.packing)) return a;
+  const n = ["a1","a2","a3"].filter(k => a[k]?.ok);
+  const f = (n.map(k => a[k].fecha).filter(Boolean).sort()[0]) || "";
+  return { existe: { ok: n.length > 0, fecha: f }, completo: { ok: n.length === 3, fecha: n.length === 3 ? f : "" },
+           listo: { ok: !!a.packing?.ok, fecha: a.packing?.fecha || "", planta: a.packing?.packing || "" }, obs: a.obs || "" };
+}
+function axPasos(e){ const a = normAx(e?.anexos); return AXP.map(([k]) => !!a[k]?.ok); }
+function axE(e){ const p = axPasos(e); if (p[4]) return 3; if (p[1]) return 2; if (p[0]) return 1; return 0; }
+function axEtapa(m){ return axE(est(m.id)); }
+function axUrg(m){
+  const n = axEtapa(m), hoy = hoyISO();
+  if (n === 3) return { c:"var(--ok)", t:"" };
+  if (diff(m.cosecha, hoy) <= 0) return { c:"var(--late)", t:"Cosecha iniciada" };
+  const d = diff(m.limiteAx, hoy);
+  if (d < 0) return { c:"var(--late)", t:"Atrasado" };
+  if (d === 0) return { c:"var(--urgent)", t:"Enviar hoy" };
+  if (d <= 2) return { c:"var(--urgent)", t:`En ${d} día${d>1?"s":""}` };
+  if (d <= 7) return { c:"var(--week)", t:"Esta semana" };
+  return { c:"var(--future)", t:"" };
+}
+function axFalta(a){ const c = a?.completo || {}; return [(c.faltan||"").split("|").filter(Boolean).join(", "), c.falta].filter(Boolean).join(". "); }
+function multiTxt(m){
+  const e = est(m.id), n = etapa(m);
+  if (n === 3) return `entregado${e.resultado?.dictamen ? ` (${e.resultado.dictamen})` : ""}`;
+  return ["muestra no tomada","muestra tomada","muestra en laboratorio"][n];
+}
+const esAx = () => ui.view === "anexos";
+
 function est(id){ return store.estados[id] || {}; }
 function etapa(m){ const e = est(m.id); if (e.resultado && e.resultado.ok) return 3; if (e.enviada && e.enviada.ok) return 2; if (e.tomada && e.tomada.ok) return 1; return 0; }
 function urgencia(m){
@@ -417,23 +486,30 @@ const kg = n => (Math.round(n)||0).toLocaleString("es-CL");
 function filtrados(){
   const q = ui.q.trim().toLowerCase();
   return plan.filter(m => {
-    const n = etapa(m);
-    if (ui.filtro !== "todas" && ETAPAS[n].k !== ui.filtro) return false;
-    if (ui.semana && semana(m.limite) !== ui.semana) return false;
+    const k = esAx() ? AX[axEtapa(m)].k : ETAPAS[etapa(m)].k;
+    if (ui.filtro !== "todas" && k !== ui.filtro) return false;
+    if (ui.semana && semana(esAx() ? m.limiteAx : m.limite) !== ui.semana) return false;
     if (q && ![m.p,m.pr,m.z,m.c,m.variedad,...m.cubre.map(x=>x.v)].join(" ").toLowerCase().includes(q)) return false;
     return true;
   });
 }
 
 function renderCounts(){
+  if (esAx()){
+    const c = [0,0,0,0]; plan.forEach(m => c[axEtapa(m)]++);
+    const lab = ["Sin archivo","Incompletos","En revisión","Listos"], cls = ["c-pend","c-tom","c-env","c-res"];
+    $("#counts").innerHTML = AX.map((e,i)=>`<button class="count ${cls[i]}" data-f="${e.k}" aria-pressed="${ui.filtro===e.k}"><b>${c[i]}</b><span>${lab[i]}</span></button>`).join("");
+    return;
+  }
   const c = [0,0,0,0]; plan.forEach(m => c[etapa(m)]++);
   const cls = ["c-pend","c-tom","c-env","c-res"], lab = ["No tomadas","Tomadas","Enviadas","Con resultado"];
   $("#counts").innerHTML = ETAPAS.map((e,i)=>`<button class="count ${cls[i]}" data-f="${e.k}" aria-pressed="${ui.filtro===e.k}"><b>${c[i]}</b><span>${lab[i]}</span></button>`).join("");
 }
 function renderWeeks(){
-  const base = plan.filter(m => ui.filtro==="todas" || ETAPAS[etapa(m)].k===ui.filtro);
+  const lim = m => esAx() ? m.limiteAx : m.limite;
+  const base = plan.filter(m => ui.filtro==="todas" || (esAx() ? AX[axEtapa(m)].k : ETAPAS[etapa(m)].k)===ui.filtro);
   const map = new Map();
-  base.forEach(m => { const w = semana(m.limite); if(!map.has(w)) map.set(w,{w, lunes:lunesDe(m.limite), n:0}); map.get(w).n++; });
+  base.forEach(m => { const w = semana(lim(m)); if(!map.has(w)) map.set(w,{w, lunes:lunesDe(lim(m)), n:0}); map.get(w).n++; });
   const ws = [...map.values()].sort((a,b)=> a.lunes < b.lunes ? -1 : 1);
   $("#weeks").innerHTML = `<button class="wk" data-w="" aria-pressed="${!ui.semana}">Todas<em>${base.length}</em></button>` +
     ws.map(w => `<button class="wk" data-w="${w.w}" aria-pressed="${ui.semana===w.w}">Sem ${w.w}<em>${fmt(w.lunes).slice(4)} · ${w.n}</em></button>`).join("");
@@ -467,6 +543,36 @@ function renderLista(list){
   return html;
 }
 
+function axCardHTML(m){
+  const e = est(m.id), a = normAx(e.anexos), p = axPasos(e), n = axEtapa(m), u = axUrg(m), st = AX[n];
+  const vars = [m.variedad, ...m.cubre.map(x => x.v)];
+  const falta = !p[1] && p[0] ? axFalta(a) : "";
+  const noCompleto = p[0] && !p[1] && a.completo?.resp === "no";
+  return `<article class="card" data-id="${esc(m.id)}" style="--u:${u.c};--st:${st.c}" tabindex="0">
+    <div class="row1"><span class="predio">${esc(m.pr)}</span><span class="var">CSG ${esc(m.c)}</span></div>
+    <div class="prod">${esc(m.p)} · ${esc(m.z)}</div>
+    <div class="dates">
+      <div class="lim"><span>Listo para planta antes de</span><b>${fmt(m.limiteAx)}</b>${u.t?`<span class="badge-u">${u.t}</span>`:""}</div>
+      <div><span>Inicio cosecha</span><b>${fmt(m.cosecha)}</b></div>
+    </div>
+    <div class="covers">Variedades: ${vars.map(esc).join(", ")}. Multiresiduo: ${multiTxt(m)}</div>
+    ${falta ? `<div class="warn">Falta: ${esc(falta)}</div>` : ""}
+    <div class="axchips">${AXP.map(([k,,l],i) => `<span class="axchip ${i===4?"pk ":""}${p[i]?"on":(i===1&&noCompleto?"no":"")}">${l}</span>`).join("")}</div>
+    <div class="stlabel">${st.t}${p[4] && a.listo?.planta ? `: ${esc(a.listo.planta)}` : ""}</div>
+  </article>`;
+}
+function renderAnexos(list){
+  if (!list.length) return vacio();
+  let html = `<p class="swipehint">Un set de Anexos 1, 2 y 3 por campo (CSG). Se vuelve a llenar cuando la siguiente variedad parte más de ${Number(store.cfg.difVariedades)||15} días después.</p>`, wk = null;
+  const orden = [...list].sort((a,b) => a.limiteAx < b.limiteAx ? -1 : a.limiteAx > b.limiteAx ? 1 : a.pr.localeCompare(b.pr));
+  for (const m of orden){
+    const w = semana(m.limiteAx);
+    if (w !== wk){ wk = w; html += `<h2 class="group-h">Semana ${w}, desde el ${fmt(lunesDe(m.limiteAx))}</h2>`; }
+    html += axCardHTML(m);
+  }
+  return html;
+}
+
 function renderTabla(list){
   if (!list.length) return vacio();
   const rows = list.map(m => {
@@ -482,29 +588,53 @@ function renderTabla(list){
       <td>${e.enviada?.ok?fmt(e.enviada.fecha):"—"}<span class="sub">${esc(e.enviada?.lab||"")} ${esc(e.enviada?.folio||"")}</span></td>
       <td>${e.resultado?.ok?fmt(e.resultado.fecha):"—"}<span class="sub">${esc(e.resultado?.dictamen||"")}</span></td>
       <td>${v?fmt(v):"—"}</td>
+      <td style="--st:${AX[axEtapa(m)].c}"><span class="pill">${AX[axEtapa(m)].t}</span><span class="sub">Antes del ${fmt(m.limiteAx)}</span></td>
       <td>${kg(m.kg)}</td>
     </tr>`;
   }).join("");
   return `<p class="swipehint">Desliza la tabla hacia el lado para ver todas las columnas. Toca una fila para actualizarla.</p>
   <div class="tablewrap"><table>
-    <thead><tr><th class="stick">Predio</th><th>Estado</th><th>Variedad muestreada</th><th>CSG</th><th>Inicio cosecha</th><th>Tomar a más tardar</th><th>Tomada</th><th>Enviada</th><th>Resultado</th><th>Vigencia hasta</th><th>Kg flujo</th></tr></thead>
+    <thead><tr><th class="stick">Predio</th><th>Estado</th><th>Variedad muestreada</th><th>CSG</th><th>Inicio cosecha</th><th>Tomar a más tardar</th><th>Tomada</th><th>Enviada</th><th>Resultado</th><th>Vigencia hasta</th><th>Anexos 1, 2 y 3</th><th>Kg flujo</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
 function renderFlujo(){
-  const q = ui.q.trim().toLowerCase();
-  const filas = store.flujo.filter(r => !q || [r.p,r.pr,r.v,r.c,r.z].join(" ").toLowerCase().includes(q));
-  const todas = [...new Set(filas.flatMap(r => Object.keys(r.d||{})))].sort();
-  if (!todas.length) return vacio();
-  const fechas = []; for (let d = D(todas[0]); iso(d) <= todas[todas.length-1]; d = add(d,1)) fechas.push(iso(d));
-  const hoy = hoyISO();
+  const q = ui.q.trim().toLowerCase(), hoy = hoyISO();
+  const modo = ui.flujoModo || "proximas";
+  const filas = store.flujo
+    .filter(r => !q || [r.p,r.pr,r.v,r.c,r.z].join(" ").toLowerCase().includes(q))
+    .map(r => {
+      const ks = Object.keys(r.d||{}).filter(k => r.d[k] > 0).sort();
+      const prox = ks.find(k => k >= hoy) || null;
+      return { r, ks, first: ks[0] || null, prox, grupo: prox ? "prox" : ks.length ? "fin" : "sin" };
+    })
+    .filter(x => modo === "todas" || x.grupo === "prox");
+  // Orden: próxima fecha de cosecha (desde hoy), luego razón social, zona y variedad
+  const rank = { prox:0, fin:1, sin:2 };
+  filas.sort((a,b) => rank[a.grupo]-rank[b.grupo] || (a.prox||a.first||"").localeCompare(b.prox||b.first||"")
+    || a.r.p.localeCompare(b.r.p) || a.r.z.localeCompare(b.r.z) || a.r.v.localeCompare(b.r.v));
+  const chips = `<div class="weeks" style="margin-bottom:6px">
+    <button class="wk fm" data-fm="proximas" aria-pressed="${modo==="proximas"}">Próximas cosechas</button>
+    <button class="wk fm" data-fm="todas" aria-pressed="${modo==="todas"}">Todo el flujo</button></div>`;
+  const todas = [...new Set(filas.flatMap(x => x.ks))].sort();
+  if (!filas.length || !todas.length) return chips + vacio();
+  const desde = modo === "proximas" && todas[0] < hoy ? hoy : todas[0];
+  const fechas = []; for (let d = D(desde); iso(d) <= todas[todas.length-1]; d = add(d,1)) fechas.push(iso(d));
   const head = fechas.map(f => `<th ${f===hoy?'data-hoy style="color:var(--brand)"':""}>${semana(f)}<br>${fmt(f)}</th>`).join("");
-  const body = filas.map(r => {
-    const ks = Object.keys(r.d||{}).filter(k=>r.d[k]>0).sort(), first = ks[0];
-    return `<tr><td class="stick"><b>${esc(r.pr)}</b><span class="sub">${esc(r.v)}</span></td>${fechas.map(f => r.d[f] ? `<td class="k ${f===first?"first":"hit"}">${kg(r.d[f])}</td>` : `<td></td>`).join("")}</tr>`;
-  }).join("");
-  return `<p class="swipehint">Flujo diario cargado. En magenta, el primer día de cosecha de cada variedad. Desliza hacia el lado para recorrer las semanas.</p>
-  <div class="tablewrap flow"><table style="min-width:${180+fechas.length*72}px"><thead><tr><th class="stick">Predio / variedad</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  let prev = null, body = "";
+  for (const x of filas){
+    const g = x.grupo === "prox" ? x.prox : x.grupo;
+    if (g !== prev){
+      prev = g;
+      const lab = x.grupo === "prox" ? (x.prox === hoy ? `Cosechan hoy, ${fmt(hoy)}` : `Cosechan el ${fmt(x.prox)}`)
+              : x.grupo === "fin" ? "Cosecha terminada" : "Sin fechas en el flujo";
+      body += `<tr class="gh"><td class="stick">${lab}</td><td colspan="${fechas.length}"></td></tr>`;
+    }
+    const r = x.r;
+    body += `<tr><td class="stick"><b>${esc(r.p)}</b><span class="sub">${esc(r.z)}</span><span class="sub var2">${esc(r.v)}</span></td>${fechas.map(f => r.d[f] ? `<td class="k ${f===x.first?"first":"hit"}">${kg(r.d[f])}</td>` : `<td></td>`).join("")}</tr>`;
+  }
+  return chips + `<p class="swipehint">Ordenado por la próxima fecha de cosecha: arriba los que cosechan primero. En magenta, el primer día de cosecha de cada variedad. Desliza hacia el lado para recorrer las semanas.</p>
+  <div class="tablewrap flow"><table style="min-width:${180+fechas.length*72}px"><thead><tr><th class="stick">Razón social / zona / variedad</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function vacio(){ return `<div class="empty">No hay muestras con estos filtros.<br><button class="btn ghost" id="btnLimpiar">Ver todas</button></div>`; }
@@ -517,9 +647,9 @@ function render(){
   $("#weeks").style.display = isFlujo ? "none" : "";
   renderCounts(); renderWeeks();
   const list = filtrados();
-  $("#view").innerHTML = ui.view === "lista" ? renderLista(list) : ui.view === "tabla" ? renderTabla(list) : renderFlujo();
+  $("#view").innerHTML = ui.view === "lista" ? renderLista(list) : ui.view === "tabla" ? renderTabla(list) : ui.view === "anexos" ? renderAnexos(list) : renderFlujo();
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === ui.view));
-  if (isFlujo){ const w = $(".tablewrap"), th = $("th[data-hoy]"); if (w && th) w.scrollLeft = Math.max(0, th.offsetLeft - 130); }
+  if (isFlujo){ const w = $(".tablewrap"), th = $("th[data-hoy]"); if (w && th){ const st = w.querySelector("thead th.stick"); w.scrollLeft = Math.max(0, th.getBoundingClientRect().left - w.getBoundingClientRect().left + w.scrollLeft - (st ? st.offsetWidth : 130)); } }
 }
 
 /* ===== Detalle / checklist ===== */
@@ -588,11 +718,106 @@ function abrir(id){
       sheet.querySelectorAll(`[data-f^="${k}."]`).forEach(inp => o[inp.dataset.f.split(".")[1]] = inp.value.trim());
       nuevo[k] = o;
     });
+    nuevo.anexos = est(id).anexos || {};
     nuevo.actualizado = new Date().toISOString(); nuevo.por = usuario();
     const antes = nivelE(est(id)), despues = nivelE(nuevo);
     store.estados[id] = nuevo; save(); $("#dlg").close(); render();
     guardarEstadoNube(id, nuevo, despues > antes ? `Avanza a: ${ETAPAS[despues].t}` : despues < antes ? `Retrocede a: ${ETAPAS[despues].t}` : "Edición de datos");
     toast(`${m.pr} ${m.variedad}: ${ETAPAS[etapa(m)].t.toLowerCase()}`);
+  };
+  $("#dlg").showModal();
+}
+
+/* ===== Detalle del archivo de anexos ===== */
+function abrirAnexos(id){
+  const m = plan.find(x => x.id === id); if (!m) return;
+  const e = est(id), a = JSON.parse(JSON.stringify(normAx(e.anexos)));
+  AXP.forEach(([k]) => a[k] = a[k] || {});
+  const hoy = hoyISO(), u = axUrg(m), n = etapa(m);
+  const vars = [m.variedad, ...m.cubre.map(x => `${x.v} (${fmt(x.inicio)})`)];
+  const faltan = (a.completo.faltan || "").split("|").filter(Boolean);
+  const res = e.resultado || {};
+  const extra = {
+    existe: `<label>Fecha<input type="date" data-axf="existe.fecha" value="${a.existe.fecha||""}"></label>
+             <label>Recibido de<input data-axf="existe.de" value="${esc(a.existe.de||"")}" placeholder="Productor / asesor"></label>`,
+    completo: `<div class="radios">
+                 <label><input type="radio" name="comp" value="si" ${a.completo.ok?"checked":""}> Sí</label>
+                 <label><input type="radio" name="comp" value="no" ${!a.completo.ok && a.completo.resp==="no"?"checked":""}> No</label></div>
+               <div class="faltas" id="faltas" ${a.completo.ok?"hidden":""}>${FALTAS.map(f => `<label><input type="checkbox" value="${esc(f)}" ${faltan.includes(f)?"checked":""}> ${esc(f)}</label>`).join("")}</div>
+               <label class="full" id="faltaTxt" ${a.completo.ok?"hidden":""}>¿Qué falta? (detalle)<input data-axf="completo.falta" value="${esc(a.completo.falta||"")}" placeholder="Ej.: faltan aplicaciones de octubre"></label>`,
+    multi: `<div class="hint">Multiresiduo de esta muestra: <b>${multiTxt(m)}</b>${n===3 && res.fecha ? `, informe del ${fmt(res.fecha)}` : ""}${res.obs ? `<br>${esc(res.obs)}` : ""}${n<3 ? "<br>Aún no hay resultado para traspasar al archivo." : ""}</div>
+            <label>Fecha<input type="date" data-axf="multi.fecha" value="${a.multi.fecha||""}"></label>`,
+    fechas: `<div class="hint">Según el flujo: inicio de cosecha <b>${fmt(m.cosecha)}</b>, término <b>${fmt(m.fin)}</b>. Revisa también el último monitoreo del Anexo 3 y las aplicaciones más recientes del Anexo 1.</div>
+             <label>Fecha<input type="date" data-axf="fechas.fecha" value="${a.fechas.fecha||""}"></label>`,
+    listo: `<label>Fecha<input type="date" data-axf="listo.fecha" value="${a.listo.fecha||""}"></label>
+            <label>Planta<input data-axf="listo.planta" value="${esc(a.listo.planta||"")}" placeholder="Planta / packing" list="plantas"></label>
+            <label class="full">Enviado a planta el<input type="date" data-axf="listo.enviado" value="${a.listo.enviado||""}"></label>`
+  };
+  const paso = ([k, q], i) => {
+    const visible = k === "completo" ? a.existe.ok : a[k].ok;
+    return `<div class="check ${a[k].ok?"done":""}" style="--st:${i===4?"var(--ok)":"var(--sent)"}" data-paso="${k}">
+      ${k === "completo"
+        ? `<div class="q" style="font-weight:600;font-size:1.02rem">${q}</div>`
+        : `<label class="q"><input type="checkbox" ${a[k].ok?"checked":""} data-ax="${k}"> ${q}</label>`}
+      <div class="fields ${visible?"":"hide"}">${extra[k]}</div>
+    </div>`;
+  };
+  $("#sheet").innerHTML = `
+    <h2>${esc(m.pr)} <span style="color:var(--brand)">Anexos 1, 2 y 3</span></h2>
+    <div class="meta">${esc(m.p)} · CSG ${esc(m.c)} · ${esc(m.z)}${e.por?`<br>Último cambio: ${esc(e.por)}, ${fmt((e.actualizado||"").slice(0,10))} ${(e.actualizado||"").slice(11,16)} UTC`:""}</div>
+    <div class="facts">
+      <div><span>Inicio cosecha</span>${fmt(m.cosecha)} (sem ${semana(m.cosecha)})</div>
+      <div><span>Listo para planta antes de</span><b style="color:${u.c}">${fmt(m.limiteAx)}</b></div>
+      <div style="grid-column:1/-1"><span>Variedades que cubre este archivo</span>${vars.map(esc).join(", ")}</div>
+    </div>
+    ${AXP.map(paso).join("")}
+    <div class="fields" style="display:block;margin-top:4px"><label>Observación<textarea rows="2" data-axf="obs">${esc(a.obs||"")}</textarea></label></div>
+    <datalist id="plantas">${[...new Set(Object.values(store.estados).map(x => normAx(x.anexos).listo?.planta).filter(Boolean))].map(l=>`<option value="${esc(l)}">`).join("")}</datalist>
+    <div class="actions"><button class="btn ghost" id="cerrar">Cancelar</button><button class="btn primary" id="guardar">Guardar</button></div>`;
+
+  const sheet = $("#sheet"), orden = AXP.map(([k]) => k);
+  const box = k => sheet.querySelector(`[data-paso="${k}"]`);
+  const esta = k => k === "completo" ? sheet.querySelector('input[name=comp][value=si]').checked : sheet.querySelector(`[data-ax="${k}"]`).checked;
+  const fijar = (k, on) => {
+    if (k === "completo"){
+      sheet.querySelectorAll("input[name=comp]").forEach(r => r.checked = on ? r.value === "si" : (r.value === "no" && r.checked));
+      $("#faltas").hidden = on; $("#faltaTxt").hidden = on;
+      box(k).classList.toggle("done", on);
+      return;
+    }
+    const c = sheet.querySelector(`[data-ax="${k}"]`); c.checked = on;
+    box(k).classList.toggle("done", on); box(k).querySelector(".fields").classList.toggle("hide", !on);
+    if (k === "existe") box("completo").querySelector(".fields").classList.toggle("hide", !on);
+    const f = box(k).querySelector('input[type=date]'); if (on && f && !f.value) f.value = hoy;
+  };
+  // Marcar un paso marca los anteriores; desmarcarlo quita los siguientes
+  const aplicar = (k, on) => { const i = orden.indexOf(k);
+    if (on) orden.slice(0, i+1).forEach(kk => fijar(kk, true));
+    else { fijar(k, false); orden.slice(i+1).forEach(kk => fijar(kk, false)); } };
+  sheet.querySelectorAll("[data-ax]").forEach(ch => ch.addEventListener("change", () => aplicar(ch.dataset.ax, ch.checked)));
+  sheet.querySelectorAll("input[name=comp]").forEach(rb => rb.addEventListener("change", () => aplicar("completo", rb.value === "si")));
+
+  $("#cerrar").onclick = () => $("#dlg").close();
+  $("#guardar").onclick = () => {
+    const nx = {};
+    orden.forEach(k => {
+      const o = { ok: esta(k) };
+      sheet.querySelectorAll(`[data-axf^="${k}."]`).forEach(inp => o[inp.dataset.axf.split(".")[1]] = inp.value.trim());
+      if (k === "completo"){
+        const no = sheet.querySelector('input[name=comp][value=no]').checked;
+        o.resp = o.ok ? "si" : no ? "no" : "";
+        o.faltan = o.ok ? "" : [...sheet.querySelectorAll("#faltas input:checked")].map(x => x.value).join("|");
+        if (o.ok){ o.falta = ""; o.fecha = a.completo.fecha || hoy; }
+      }
+      nx[k] = o;
+    });
+    nx.obs = sheet.querySelector('[data-axf="obs"]').value.trim();
+    const antes = axE(e);
+    const nuevo = JSON.parse(JSON.stringify(e)); nuevo.anexos = nx; nuevo.actualizado = new Date().toISOString(); nuevo.por = usuario();
+    const despues = axE(nuevo);
+    store.estados[id] = nuevo; save(); $("#dlg").close(); render();
+    guardarEstadoNube(id, nuevo, despues !== antes ? `Anexos: ${AX[despues].t}` : "Anexos: edición de datos");
+    toast(`${m.pr} CSG ${m.c}: ${AX[despues].t.toLowerCase()}`);
   };
   $("#dlg").showModal();
 }
@@ -644,7 +869,12 @@ function exportar(){
     "Fecha toma": e.tomada?.ok ? e.tomada.fecha : "", "Responsable": e.tomada?.resp||"", "Obs. toma": e.tomada?.obs||"",
     "Fecha envío": e.enviada?.ok ? e.enviada.fecha : "", "Laboratorio": e.enviada?.lab||"", "N° muestra": e.enviada?.folio||"",
     "Fecha resultado": e.resultado?.ok ? e.resultado.fecha : "", "Dictamen": e.resultado?.dictamen||"", "Obs. resultado": e.resultado?.obs||"",
-    "Vigencia hasta": v||"", "Kg flujo": m.kg }; });
+    "Vigencia hasta": v||"", "Kg flujo": m.kg,
+    ...(() => { const a = normAx(e.anexos), si = k => a[k]?.ok ? "Sí" : "No"; return {
+      "Anexos: listo antes de": m.limiteAx, "Estado anexos": AX[axEtapa(m)].t,
+      "Archivo existe": si("existe"), "Anexos completos": si("completo"), "Qué falta": a.completo?.ok ? "" : axFalta(a),
+      "Con info multiresiduo": si("multi"), "Fechas actualizadas": si("fechas"), "Listo para planta": si("listo"),
+      "Planta": a.listo?.planta || "", "Enviado a planta": a.listo?.enviado || "", "Obs. anexos": a.obs || "" }; })() }; });
   if (window.XLSX){
     const ws = XLSX.utils.json_to_sheet(filas); ws["!cols"] = Object.keys(filas[0]||{}).map(k => ({ wch: Math.max(10, k.length+2) }));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Control muestras");
@@ -664,13 +894,14 @@ function abrirCfg(){
       <label>Días de diferencia entre variedades para tomar otra muestra<input type="number" min="1" id="cDif" value="${c.difVariedades}"></label>
       <label>Vigencia del análisis (días desde la toma)<input type="number" min="1" id="cVig" value="${c.vigencia}"></label>
       <label>Días extra de anticipación a la toma<input type="number" min="0" id="cAnt" value="${c.anticipoExtra}"></label>
+      <label>Días antes del inicio de cosecha para tener el archivo de anexos listo<input type="number" min="0" id="cAx" value="${c.anexosAntes}"></label>
       <label>El laboratorio entrega resultados el sábado<input type="checkbox" id="cSab" ${c.labSabado?"checked":""} style="width:22px;height:22px;accent-color:var(--brand)"></label>
       <p>Regla de fecha límite: el laboratorio retira en la mañana y entrega al día hábil siguiente en la tarde, así que la muestra debe salir a más tardar el último día hábil cuyo resultado llega antes del inicio de cosecha.</p>
       <p>Origen del flujo: ${esc(store.origen||"")}</p>
       <p>Base de datos: ${db ? `proyecto ${esc(firebaseConfig.projectId)}, temporada ${TEMPORADA}` : "no configurada (solo este equipo)"}</p>
     </div>
     <div class="actions">${db ? "" : `<button class="btn ghost" id="reset">Borrar todos los estados</button>`}<button class="btn primary" id="gCfg">Guardar</button></div>`;
-  $("#gCfg").onclick = () => { store.cfg = { difVariedades:+$("#cDif").value||15, vigencia:+$("#cVig").value||15, anticipoExtra:+$("#cAnt").value||0, labSabado:$("#cSab").checked }; save(); subirCfg(); $("#dlg").close(); render(); toast(db ? "Configuración guardada para todo el equipo" : "Configuración guardada"); };
+  $("#gCfg").onclick = () => { store.cfg = { difVariedades:+$("#cDif").value||15, vigencia:+$("#cVig").value||15, anticipoExtra:+$("#cAnt").value||0, labSabado:$("#cSab").checked, anexosAntes: Math.max(0, +$("#cAx").value||0) }; save(); subirCfg(); $("#dlg").close(); render(); toast(db ? "Configuración guardada para todo el equipo" : "Configuración guardada"); };
   if ($("#reset")) $("#reset").onclick = () => { if (confirm("Se borrarán todos los estados de muestras registrados en este dispositivo. ¿Continuar?")){ store.estados = {}; save(); $("#dlg").close(); render(); toast("Estados borrados"); } };
   $("#dlg").showModal();
 }
@@ -679,13 +910,14 @@ function abrirCfg(){
 let tt; function toast(t){ const el = $("#toast"); el.textContent = t; el.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove("show"), 3200); }
 document.addEventListener("click", ev => {
   const t = ev.target;
-  const tab = t.closest(".tabs button"); if (tab){ ui.view = tab.dataset.view; render(); window.scrollTo(0,0); return; }
+  const tab = t.closest(".tabs button"); if (tab){ const antes = esAx(); ui.view = tab.dataset.view; if (antes !== esAx()){ ui.filtro = "todas"; ui.semana = null; } render(); window.scrollTo(0,0); return; }
   const cnt = t.closest(".count"); if (cnt){ ui.filtro = ui.filtro === cnt.dataset.f ? "todas" : cnt.dataset.f; ui.semana = null; render(); return; }
+  const fm = t.closest(".fm"); if (fm){ ui.flujoModo = fm.dataset.fm; render(); return; }
   const wk = t.closest(".wk"); if (wk){ ui.semana = wk.dataset.w ? +wk.dataset.w : null; render(); return; }
   if (t.closest("#btnLimpiar")){ ui = { ...ui, filtro:"todas", semana:null, q:"" }; $("#q").value = ""; render(); return; }
-  const card = t.closest("[data-id]"); if (card && !t.closest("dialog")){ abrir(card.dataset.id); return; }
+  const card = t.closest("[data-id]"); if (card && !t.closest("dialog")){ (esAx() ? abrirAnexos : abrir)(card.dataset.id); return; }
 });
-document.addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.classList?.contains("card")) abrir(ev.target.dataset.id); });
+document.addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.classList?.contains("card")) (esAx() ? abrirAnexos : abrir)(ev.target.dataset.id); });
 $("#dlg").addEventListener("click", ev => { if (ev.target.id === "dlg") $("#dlg").close(); });
 $("#q").addEventListener("input", ev => { ui.q = ev.target.value; render(); });
 $("#btnImport").onclick = () => $("#fileIn").click();
