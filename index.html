@@ -265,12 +265,16 @@ async function initNube(){
   if (!firebaseConfig.projectId){ setNube("local"); return; }
   setNube("conectando");
   try{
-    const [appM, fsM] = await Promise.all([
+    const [appM, fsM, authM] = await Promise.all([
       import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app.js`),
-      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-firestore.js`)
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-firestore.js`),
+      import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-auth.js`)
     ]);
     fb = fsM;
     const app = appM.initializeApp(firebaseConfig);
+    // Sesión anónima: las reglas de Firestore exigen request.auth != null
+    const auth = authM.getAuth(app);
+    if (!auth.currentUser) await authM.signInAnonymously(auth);
     try { db = fsM.initializeFirestore(app, { localCache: fsM.persistentLocalCache({ tabManager: fsM.persistentMultipleTabManager() }) }); }
     catch(e){ db = fsM.getFirestore(app); }
     if (!usuario()) pedirNombre();

@@ -1,5 +1,5 @@
 // Solo guarda la app y sus librerías; nunca intercepta las conexiones a Firestore.
-const C = "multiresiduo-v2";
+const C = "multiresiduo-v3";
 const CACHEABLE = ["www.gstatic.com", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => c.addAll(["./", "index.html", "manifest.json", "icon.svg"]))); });
 self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
